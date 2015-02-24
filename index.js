@@ -33,7 +33,6 @@ var webpackPreprocessor = function (options) {
         options.entry = './' + file.path;
 
         var compiler = webpack(options, compilerCallback(done));
-        compiler.wallabyDone = done;
 
         // ripped out of gulp-webpack
         var fs = compiler.outputFileSystem = new MemoryFileSystem();
