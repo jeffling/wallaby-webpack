@@ -2,8 +2,6 @@ var webpack = require('webpack');
 var MemoryFileSystem = require('memory-fs');
 var convert = require('convert-source-map');
 
-var compilerCache = {};
-
 var webpackPreprocessor = function (options) {
     options.watch = null;
     options.entry = null;
@@ -32,39 +30,31 @@ var webpackPreprocessor = function (options) {
     }
 
     return function(file, done) {
-        if (compilerCache[file.path]){
-            compilerCache[file.path].wallabyDone = done;
-            compilerCache[file.path].run(compilerCallback(done));
-        }
-        else {
-            options.entry = './' + file.path;
+        options.entry = './' + file.path;
 
-            var compiler = webpack(options, compilerCallback);
-            compiler.wallabyDone = done;
+        var compiler = webpack(options, compilerCallback(done));
+        compiler.wallabyDone = done;
 
-            // ripped out of gulp-webpack
-            var fs = compiler.outputFileSystem = new MemoryFileSystem();
-            compiler.plugin('after-emit', function (compilation, callback) {
-                Object.keys(compilation.assets).forEach(function (outname) {
-                    if (compilation.assets[outname].emitted) {
-                        var filePath = fs.join(compiler.outputPath, outname);
+        // ripped out of gulp-webpack
+        var fs = compiler.outputFileSystem = new MemoryFileSystem();
+        compiler.plugin('after-emit', function (compilation, callback) {
+            Object.keys(compilation.assets).forEach(function (outname) {
+                if (compilation.assets[outname].emitted) {
+                    var filePath = fs.join(compiler.outputPath, outname);
 
-                        var resultFile = {
-                            code: fs.readFileSync(filePath).toString()
-                        };
-                        file.rename(outname);
-                        var sourceMapConverter = convert.fromSource(resultFile.code);
-                        if (sourceMapConverter) {
-                            resultFile.map = sourceMapConverter.toJSON();
-                        }
-                        compiler.wallabyDone(resultFile);
+                    var resultFile = {
+                        code: fs.readFileSync(filePath).toString()
+                    };
+                    file.rename(outname);
+                    var sourceMapConverter = convert.fromSource(resultFile.code);
+                    if (sourceMapConverter) {
+                        resultFile.map = sourceMapConverter.toJSON();
                     }
-                });
-                callback();
+                    done(resultFile);
+                }
             });
-
-            compilerCache[file.path] = compiler;
-        }
+            callback();
+        });
     }
 };
 
