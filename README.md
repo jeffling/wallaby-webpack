@@ -3,4 +3,4 @@
 # wallaby-webpack
 webpack preprocessor for wallabyjs
 
-under development
+under development - please see issues, feel free to submit PR
