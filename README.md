@@ -82,7 +82,7 @@ For your tests you don't have to use the module bundler loaders and where possib
     postprocessor: wallabyPostprocessor
 ```
 ### Files and tests
-All source files and tests must have `load: false` set, because wallaby will load wrapped versions of these files on `window.__moduleBundler.loadTests()` call in `bootstrap` function.
+All source files and tests (except external files/libs) must have `load: false` set, because wallaby will load wrapped versions of these files on `window.__moduleBundler.loadTests()` call in `bootstrap` function. Node modules should not be listed in the `files` list, they are loaded automatically.
 
 Source files order doesn't matter, so patterns can be used instead of listing all the files.
 
