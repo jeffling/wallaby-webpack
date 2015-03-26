@@ -1,60 +1,255 @@
-var webpack = require('webpack');
-var MemoryFileSystem = require('memory-fs');
-var convert = require('convert-source-map');
+'use strict';
 
-var webpackPreprocessor = function (options) {
-    options.watch = null;
-    options.entry = null;
-    options.output = options.output || {};
-    options.output.path = options.output.path || process.cwd();
-    options.output.filename = options.output.filename || '[hash].js';
-    options.context = options.context || __dirname;
-    options.devtool = options.devtool || "#inline-source-map";
+var path = require('path');
+var _ = require('lodash');
+var WallabyInputFileSystem = require('./lib/WallabyInputFileSystem');
 
-    function compilerCallback (done) {
-        return function (err, stats) {
-            if (err) {
-                done(err);
-                return;
-            }
+/*
+ Postprocessor for wallaby.js runs module bundler compiler incrementally
+ to only build changed or not yet built modules. The compiler is stopped from emitting the bundle/chunks to disk,
+ because while concatenating files is beneficial for production environment, in testing environment it is different.
+ Serving a large bundle/chunk every time when one of many files (that the bundle consists of) changes, is wasteful.
+ So instead, each compiled module code is passed to wallaby,  wallaby caches it in memory (and when required, writes
+ it on disk) and serves each requested module file separately to properly leverage browser caching.
 
-            if (stats) {
-                if (stats.hasErrors()) {
-                    done(new Error(stats.toJson().errors));
-                }
-                else {
-                    console.info(stats.toString({color: true}));
-                }
-            }
+ Apart from emitting module files, the postprocessor also emits a test loader script that executes in browser before
+ any modules. The test loader sets up a global object so that each wrapped module can add itself to the loader cache.
+
+ Each module code is wrapped in such a way that when the module file is loaded in browser, it doesn't execute
+ the module code immediately. Instead, it just adds the function that executes the module code to test loader's cache.
+
+ Modules are loaded from tests (that are entry points) when the tests are loaded. The tests are loaded from wallaby
+ bootstrap function, by calling `__moduleBundler.loadTests()`.
+
+ When wallaby runs tests first time, browser caches all modules and each subsequent test run only needs to load  a
+ changed module files from the server (and not the full bundle). If new modules detected, the the test loader script,
+ that sets up module dependencies object, is also reloaded.
+ */
+
+class WebpackPostprocessor {
+
+  constructor(opts) {
+    this._loaderEmitRequired = false;
+    this._opts = opts || {};
+    this._compilationCache = {};
+    this._compilationFileTimestamps = {};
+    this._affectedModules = [];
+    this._moduleIds = {};
+    this._allTrackedFiles = {};
+    this._inputFileSystem = new WallabyInputFileSystem(this);
+  }
+
+  getAllTrackedFiles() {
+    return this._allTrackedFiles;
+  }
+
+  createPostprocessor() {
+    var self = this;
+    try {
+      this._webpack = require('webpack');
+    }
+    catch (e) {
+      console.error('Webpack node module is not found, missing `npm install webpack --save-dev`?');
+      return;
+    }
+
+    return wallaby => {
+      var logger = wallaby.logger;
+      var affectedFiles = WebpackPostprocessor._fileArrayToObject(wallaby.affectedFiles);
+
+      if (!self._compiler || wallaby.anyFilesAdded || wallaby.anyFilesDeleted) {
+
+        if (!self._compiler) {
+          logger.debug('New compiler created');
         }
-    }
+        else {
+          logger.debug('Compiler re-created because some tracked files were added or deleted');
+        }
 
-    return function(file, done) {
-        options.entry = './' + file.path;
-
-        var compiler = webpack(options, compilerCallback(done));
-
-        // ripped out of gulp-webpack
-        var fs = compiler.outputFileSystem = new MemoryFileSystem();
-        compiler.plugin('after-emit', function (compilation, callback) {
-            Object.keys(compilation.assets).forEach(function (outname) {
-                if (compilation.assets[outname].emitted) {
-                    var filePath = fs.join(compiler.outputPath, outname);
-
-                    var resultFile = {
-                        code: fs.readFileSync(filePath).toString()
-                    };
-                    file.rename(outname);
-                    var sourceMapConverter = convert.fromSource(resultFile.code);
-                    if (sourceMapConverter) {
-                        resultFile.map = sourceMapConverter.toJSON();
-                    }
-                    done(resultFile);
-                }
-            });
-            callback();
+        self._compiler = self._createCompiler({
+          cache: false,   // wallaby post processor is using its own cache
+          devtool: 'inline-source-map',
+          entry: _.reduce(wallaby.allTestFiles, (memo, testFile) => {
+            memo[testFile.fullPath] = testFile.fullPath;
+            return memo;
+          }, {}),
+          resolve: {modulesDirectories: wallaby.nodeModulesDir ? [wallaby.nodeModulesDir] : []},
+          resolveLoader: {modulesDirectories: wallaby.nodeModulesDir ? [wallaby.nodeModulesDir] : []}
         });
-    }
-};
 
-module.exports = webpackPreprocessor;
+        affectedFiles = self._allTrackedFiles = WebpackPostprocessor._fileArrayToObject(wallaby.allFiles);
+        self._affectedModules = [];
+        self._moduleIds = {};
+        self._compilationCache = {};
+        self._compilationFileTimestamps = {};
+
+        self._loaderEmitRequired = true;
+      }
+
+      // cache invalidation for changed files
+      _.each(affectedFiles, file => {
+        self._compilationFileTimestamps[file.fullPath] = +new Date();
+      });
+
+      return new Promise(
+        function (resolve, reject) {
+          try {
+            // incremental bundling
+            self._compiler.compile((err, stats) => {
+              if (err) {
+                reject(err);
+                return;
+              }
+              var lastCompilation = self._compiler.lastCompilation;
+              if (lastCompilation && lastCompilation.errors && lastCompilation.errors.length) {
+                _.each(lastCompilation.errors, e => logger.error(e && (e.stack || e.message)));
+              }
+
+              resolve();
+            });
+          } catch (err) {
+            reject(err);
+          }
+        })
+        .then(function () {
+          var createFilePromises = [];
+
+          _.each(self._affectedModules, function (m) {
+            var trackedFile = m.resource && affectedFiles[m.resource];
+            var source = self._getSource(m);
+            var code = source.code;
+            var sourceMap = trackedFile && source.map();
+
+            createFilePromises.push(wallaby.createFile({
+              // adding the suffix to store webpack file along with the original copies for tracked files
+              // for non-tracked files path/name doesn't matter, just has to be unique for each file
+              path: trackedFile ? (trackedFile.path + '.wbp.js') : path.join('__modules', m.id + '.js'),
+              original: trackedFile,
+              content: code,
+              sourceMap: sourceMap,
+              ts: !trackedFile ? 1 : undefined // caching non tracked files in browser/phantomjs until wallaby restarts
+            }));
+
+            // if the file is not tracked, preventing re-build it
+            if (m.resource && !trackedFile) {
+              self._compilationFileTimestamps[m.resource] = 1;
+            }
+
+            // entry modules (tests) have id = 0,
+            // caching them by file path so that we can load them from __moduleBundler.loadTests
+            var moduleId = m.id || m.resource;
+            if (!self._moduleIds[moduleId]) {
+              self._moduleIds[moduleId] = m.id || true;
+              // modules unknown so far force test loader script reload
+              self._loaderEmitRequired = true;
+            }
+          });
+
+          // resetting till next incremental bundle run
+          self._affectedModules = [];
+
+          // test loader script for wallaby.js
+          if (self._loaderEmitRequired) {
+            self._loaderEmitRequired = false;
+            createFilePromises.push(wallaby.createFile({
+              order: -1,  // need to be the first file to load
+              path: 'wallaby-webpack.js',
+              content: WebpackPostprocessor._getLoaderContent() + 'window.__moduleBundler.deps = '
+                // dependency lookup
+              + JSON.stringify(self._moduleIds) + ';'
+            }));
+          }
+
+          logger.debug('Emitting %s files', createFilePromises.length);
+
+          return Promise.all(createFilePromises);
+        });
+    };
+  }
+
+  static _fileArrayToObject(files) {
+    return _.reduce(files, function (memo, file) {
+      memo[file.fullPath] = file;
+      return memo;
+    }, {});
+  }
+
+  _createCompiler(mandatoryOpts) {
+    var mergedOpts = _.extend({}, this._opts, mandatoryOpts);
+
+    var modulesDirectories = mergedOpts.resolve.modulesDirectories =
+      mandatoryOpts.resolve.modulesDirectories.concat((this._opts.resolve || {}).modulesDirectories || []);
+    var loaderModulesDirectories = mergedOpts.resolveLoader.modulesDirectories =
+      mandatoryOpts.resolveLoader.modulesDirectories.concat((this._opts.resolveLoader || {}).modulesDirectories || []);
+
+    // adding default module dirs if nothing was passed from user
+    if (!this._opts.resolve || !this._opts.resolve.modulesDirectories || !this._opts.resolve.modulesDirectories.length) {
+      modulesDirectories.push('node_modules');
+      modulesDirectories.push('web_modules');
+    }
+    if (!this._opts.resolveLoader || !this._opts.resolveLoader.modulesDirectories || !this._opts.resolveLoader.modulesDirectories.length) {
+      loaderModulesDirectories.push('node_modules');
+      loaderModulesDirectories.push('web_modules');
+      loaderModulesDirectories.push('node_loaders');
+      loaderModulesDirectories.push('web_loaders');
+    }
+
+    return this._configureCompiler(this._webpack(mergedOpts));
+  }
+
+  _configureCompiler(compiler) {
+    var self = this;
+    compiler.plugin('this-compilation', function (compilation) {
+
+      compiler.lastCompilation = compilation;
+      compilation.cache = self._compilationCache;
+      compilation.fileTimestamps = self._compilationFileTimestamps;
+      self._moduleTemplate = compilation.moduleTemplate;
+      self._dependencyTemplates = compilation.dependencyTemplates;
+
+      compilation.plugin('build-module', function (m) {
+        self._affectedModules.push(m);
+      });
+    });
+
+    // no need to emit chunks as we emit individual modules
+    compiler.plugin('should-emit', function (compilation) {
+      return false;
+    });
+
+    compiler.inputFileSystem = self._inputFileSystem;
+    return compiler;
+  }
+
+  _getSource(m) {
+    var self = this;
+    // to avoid wrapping module into a function, we do it a bit differently in _wrapSourceFile
+    self._moduleTemplate._plugins['render'] = [];
+
+    var node = self._moduleTemplate.render(m, self._dependencyTemplates, {modules: [m]});
+
+    return {
+      code: WebpackPostprocessor._wrapSourceFile(m.id || m.resource, node.source()),
+      map: () => node.map()
+    };
+  }
+
+  static _wrapSourceFile(id, content) {
+    return 'window.__moduleBundler.cache[' + JSON.stringify(id) + '] = [function(__webpack_require__, module, exports) {'
+      + content + '\n}, window.__moduleBundler.deps];';
+  }
+
+  static _getLoaderContent() {
+    return 'window.__moduleBundler = {};'
+      + 'window.__moduleBundler.cache = {};'
+      + 'window.__moduleBundler.loadTests = function () {'
+        // webpack prelude (taken from browserify)
+      + '(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module \'"+o+"\'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})'
+        // passing accumulated files and entry points (webpack-ed tests for the current sandbox)
+      + '(window.__moduleBundler.cache, {}, (function(){ var testIds = []; for(var i = 0, len = wallaby.loadedTests.length; i < len; i++) { var test = wallaby.loadedTests[i]; if (test.substr(-7) === ".wbp.js") testIds.push(wallaby.baseDir + test.substr(0, test.length - 7)); } return testIds; })()); };'
+  }
+}
+
+module.exports = function (opts) {
+  return new WebpackPostprocessor(opts).createPostprocessor();
+};
