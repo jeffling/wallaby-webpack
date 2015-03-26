@@ -31,7 +31,8 @@ var wallabyPostprocessor = wallabyWebpack({
 
 module.exports = function () {
   return {
-    // set `load: false` to all of source files and tests processed by webpack (except external files),
+    // set `load: false` to all of source files and tests processed by webpack
+    // (except external files),
     // as they should not be loaded in browser,
     // their wrapped versions will be loaded instead
     files: [
