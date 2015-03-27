@@ -175,7 +175,7 @@ class WebpackPostprocessor {
   }
 
   _createCompiler(mandatoryOpts) {
-    var mergedOpts = _.extend({}, this._opts, mandatoryOpts);
+    var mergedOpts = _.merge({}, this._opts, mandatoryOpts);
 
     var modulesDirectories = mergedOpts.resolve.modulesDirectories =
       mandatoryOpts.resolve.modulesDirectories.concat((this._opts.resolve || {}).modulesDirectories || []);
