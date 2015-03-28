@@ -68,7 +68,6 @@ class WebpackPostprocessor {
 
         self._compiler = self._createCompiler({
           cache: false,   // wallaby post processor is using its own cache
-          devtool: 'inline-source-map',
           entry: _.reduce(wallaby.allTestFiles, (memo, testFile) => {
             memo[testFile.fullPath] = testFile.fullPath;
             return memo;
