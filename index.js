@@ -122,7 +122,11 @@ class WebpackPostprocessor {
             createFilePromises.push(wallaby.createFile({
               // adding the suffix to store webpack file along with the original copies for tracked files
               // for non-tracked files path/name doesn't matter, just has to be unique for each file
-              path: trackedFile ? (trackedFile.path + '.wbp.js') : path.join('__modules', m.id + '.js'),
+              path: trackedFile
+                // adding id because same resource may be loaded more than once with different ids, for example:
+                // var a = require('./a'); var b = require('imports?window=mocked!./a');
+                ? (trackedFile.path + (m.id ? ('.' + m.id) : '') + '.wbp.js')
+                : path.join('__modules', m.id + '.js'),
               original: trackedFile,
               content: code,
               sourceMap: sourceMap,
