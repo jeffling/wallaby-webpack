@@ -88,3 +88,26 @@ Source files order doesn't matter, so patterns can be used instead of listing al
 
 Code inside each file is wrapped in such a way that when the file is loaded in browser, it doesn't execute
  the code immediately. Instead, it just adds some function, that executes the file code, to test loader's cache. Tests and dependent files are loaded from wallaby `bootstrap` function, by calling `__moduleBundler.loadTests()`, and then executed.
+
+### Module resolution issues
+If you are observing `ModuleNotFoundError`, required module folders are referenced in a relative manner and didn't make it into the wallaby file cache, that wallaby is using to run your tests.
+
+For example, if you are using `bower_components` and may have something like this in you config:
+```javascript
+    resolve: {
+      modulesDirectories: ['bower_components']
+    }
+```
+In this case, even though I would not recommend it, you may to add `{ pattern: 'bower_components/**/*.*', instrument: false, load: false }` to your files list, so that `bower_components` contents makes it into the wallaby cache and wallaby will be able to resolve modules from it.
+
+The **more efficient approach** that I would recommend is to specify an absolute path in your wallaby configuration for webpack for your modules instead:
+```javascript
+    resolve: {
+      modulesDirectories: [require('path').join(__dirname, 'bower_components')]
+    }
+```
+This way you don't need to specify `bower_components` in your files list and wallaby will not have to copy it over to its cache.
+
+The same applies to `resolve.fallback`, `resolve.root` and `resolveLoader` webpack configuration settings.
+
+**Please note that you don't need to do a similar thing for `node_modules`, as wallaby-webapck automatically adds local project `node_modules` folder to the the fallback list**. Unlike `node_modules`, `bower_components` and any other custom module folders can be used with different names/paths, so wallaby doesn't try to automatically add them based on the name convention.
