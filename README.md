@@ -54,6 +54,16 @@ module.exports = function () {
 };
 ```
 
+You may also consider re-using your existing webpack config by requiring it in wallaby config and adjusting the way you need.
+``` javascript
+var webpackConfig = require('./webpack.config');
+
+// Adjust the config as required
+// webpackConfig.plugins.push(...);
+
+var wallabyPostprocessor = wallabyWebpack(webpackConfig);
+```
+
 ## Notes
 
 ### Webpack options
