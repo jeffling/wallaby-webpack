@@ -74,10 +74,12 @@ You don't need to specify any output options because wallaby-webpack doesn't use
  So instead, each compiled module code is passed to wallaby, wallaby caches it in memory (and when required, writes
  it to disk) and serves each requested module file separately to properly leverage browser caching.
  
+#### Source maps and `devtool` option
 Please note, that some webpack loaders, such as `babel-loader` require you to use `devtool` option in order to generate a source map, that is required in wallaby.js for the correct error stack mappings. Wallaby supported `devtool` values are: `source-map`, `hidden-source-map`, `cheap-module-source-map`.
 
 **For better performance, consider not using webpack loaders in wallaby configuration, specifically those that require `devtool` and source maps, and use wallaby.js preprocessors or compilers instead as described below.**
 
+#### Loaders vs preprocessors/compilers
 For your tests you don't have to use the module bundler loaders and where possible may use wallaby.js [preprocessors](https://github.com/wallabyjs/public#preprocessors-setting) or []([compiler](https://github.com/wallabyjs/public#compilers-setting)) instead. 
 
 For example, if you are using ES6/JSX, instead of using `babel-loader` in the webpack configuration, you may specify wallaby.js preprocessor:
@@ -146,7 +148,7 @@ For example, if you are using `bower_components` and may have something like thi
 ```
 In this case, even though I would not recommend it, you may to add `{ pattern: 'bower_components/**/*.*', instrument: false, load: false }` to your files list, so that `bower_components` contents makes it into the wallaby cache and wallaby will be able to resolve modules from it.
 
-The **more efficient approach** that I would recommend is to specify an absolute path in your wallaby configuration for webpack for your modules instead:
+The **more efficient approach** that I would recommend is to specify an absolute path in your wallaby configuration for webpack for **your external modules (not your source files)** instead:
 ```javascript
     resolve: {
       modulesDirectories: [require('path').join(__dirname, 'bower_components')]
@@ -156,4 +158,4 @@ This way you don't need to specify `bower_components` in your files list and wal
 
 The same applies to `resolve.fallback`, `resolve.root` and `resolveLoader` webpack configuration settings.
 
-**Please note that you don't need to do a similar thing for `node_modules`, as wallaby-webapck automatically adds local project `node_modules` folder to the the fallback list**. Unlike `node_modules`, `bower_components` and any other custom module folders can be used with different names/paths, so wallaby doesn't try to automatically add them based on the name convention.
+**Please note that you don't need to do a similar thing for `node_modules`, as wallaby-webapck automatically adds local project `node_modules` folder to the the fallback list**. Unlike `node_modules`, `bower_components` and any other custom module folders can be used with different names/paths, so wallaby doesn't try to automatically add them based on the name convention. Also, you should not use the approach for your source files, because they need to be instrumented and served from the wallaby cache, not from the local project folder.
