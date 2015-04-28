@@ -114,7 +114,7 @@ or a compiler (recommended in case if you are using or planning to use ES7 featu
     postprocessor: wallabyPostprocessor
 ```
 In this case, don't forget to remove `devtool` and not used loaders if you are using external webpack config as wallaby webpack config, for example:
-```
+``` javascript
   var webpackConfig = require('./webpack.config');
   
   // removing babel-loader, we will use babel compiler instead, it's more performant
