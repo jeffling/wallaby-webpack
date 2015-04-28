@@ -73,8 +73,14 @@ You don't need to specify any output options because wallaby-webpack doesn't use
  Serving a large bundle every time when one of many files (that the bundle consists of) changes, is wasteful.
  So instead, each compiled module code is passed to wallaby, wallaby caches it in memory (and when required, writes
  it to disk) and serves each requested module file separately to properly leverage browser caching.
+ 
+Please note, that some webpack loaders, such as `babel-loader` require you to use `devtool` option in order to generate a source map, that is required in wallaby.js for the correct error stack mappings. Wallaby supported `devtool` values are: `source-map`, `hidden-source-map`, `cheap-module-source-map`.
 
-For your tests you don't have to use the module bundler loaders and where possible may use [wallaby.js preprocessors](https://github.com/wallabyjs/public#preprocessors-setting) instead. For example, if you are using ES6, instead of using `babel-loader` in the webpack configuration, you may specify wallaby.js preprocessor(s):
+**For better performance, consider not using webpack loaders in wallaby configuration, specifically those that require `devtool` and source maps, and use wallaby.js preprocessors or compilers instead as described below.**
+
+For your tests you don't have to use the module bundler loaders and where possible may use wallaby.js [preprocessors](https://github.com/wallabyjs/public#preprocessors-setting) or []([compiler](https://github.com/wallabyjs/public#compilers-setting)) instead. 
+
+For example, if you are using ES6/JSX, instead of using `babel-loader` in the webpack configuration, you may specify wallaby.js preprocessor:
 
 ``` javascript
     files: [
@@ -91,6 +97,36 @@ For your tests you don't have to use the module bundler loaders and where possib
 
     postprocessor: wallabyPostprocessor
 ```
+or a compiler (recommended in case if you are using or planning to use ES7 features, with [proper `stage` value](https://babeljs.io/docs/usage/experimental/) passed to the compiler options):
+``` javascript
+    files: [
+      {pattern: 'src/*.js', load: false}
+    ],
+
+    tests: [
+      {pattern: 'test/*Spec.js', load: false}
+    ],
+
+    compilers: {
+      '**/*.js': wallaby.compilers.babel({ babel: require('babel') /* , stage: 0 */ }),
+    }
+
+    postprocessor: wallabyPostprocessor
+```
+In this case, don't forget to remove `devtool` and not used loaders if you are using external webpack config as wallaby webpack config, for example:
+```
+  var webpackConfig = require('./webpack.config');
+  
+  // removing babel-loader, we will use babel compiler instead, it's more performant
+  webpackConfig.module.loaders = webpackConfig.module.loaders.filter(function(l){
+    return l.loader !== 'babel-loader';
+  });
+
+  delete webpackConfig.devtool;
+  
+  var wallabyPostprocessor = wallabyWebpack(webpackConfig);
+```
+
 ### Files and tests
 All source files and tests (except external files/libs) must have `load: false` set, because wallaby will load wrapped versions of these files on `window.__moduleBundler.loadTests()` call in `bootstrap` function. Node modules should not be listed in the `files` list, they are loaded automatically.
 
