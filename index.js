@@ -2,6 +2,7 @@
 
 var path = require('path');
 var _ = require('lodash');
+var mm = require('minimatch');
 var WallabyInputFileSystem = require('./lib/WallabyInputFileSystem');
 
 /*
@@ -31,11 +32,20 @@ class WebpackPostprocessor {
   constructor(opts) {
     this._loaderEmitRequired = false;
     this._opts = opts || {};
+
+    this._entryPatterns = this._opts.entryPatterns;
+    delete this._opts.entryPatterns;
+
+    if (this._entryPatterns && _.isString(this._entryPatterns)) {
+      this._entryPatterns = [this._entryPatterns];
+    }
+
     this._compilationCache = {};
     this._compilationFileTimestamps = {};
     this._affectedModules = [];
     this._moduleIds = {};
     this._allTrackedFiles = {};
+    this._entryFiles = {};
     this._inputFileSystem = new WallabyInputFileSystem(this);
   }
 
@@ -66,17 +76,26 @@ class WebpackPostprocessor {
           logger.debug('Compiler re-created because some tracked files were added or deleted');
         }
 
+        affectedFiles = self._allTrackedFiles = WebpackPostprocessor._fileArrayToObject(wallaby.allFiles);
+
+        self._entryFiles = _.reduce(!self._entryPatterns
+            ? wallaby.allTestFiles
+            : _.filter(self._allTrackedFiles, file => _.find(self._entryPatterns, pattern => mm(file.path, pattern))),
+          function (memo, file) {
+            memo[file.fullPath] = file;
+            return memo;
+          }, {});
+
         self._compiler = self._createCompiler({
           cache: false,   // wallaby post processor is using its own cache
-          entry: _.reduce(wallaby.allTestFiles, (memo, testFile) => {
-            memo[testFile.fullPath] = testFile.fullPath;
+          entry: _.reduce(self._entryFiles, (memo, entryFile) => {
+            memo[entryFile.fullPath] = entryFile.fullPath;
             return memo;
           }, {}),
           resolve: {modulesDirectories: wallaby.nodeModulesDir ? [wallaby.nodeModulesDir] : []},
           resolveLoader: {modulesDirectories: wallaby.nodeModulesDir ? [wallaby.nodeModulesDir] : []}
         });
 
-        affectedFiles = self._allTrackedFiles = WebpackPostprocessor._fileArrayToObject(wallaby.allFiles);
         self._affectedModules = [];
         self._moduleIds = {};
         self._compilationCache = {};
@@ -112,9 +131,10 @@ class WebpackPostprocessor {
         })
         .then(function () {
           var createFilePromises = [];
-
+          var trackedFileIds = {};
           _.each(self._affectedModules, function (m) {
             var trackedFile = m.resource && affectedFiles[m.resource];
+            var isEntryFile = trackedFile && self._entryPatterns && self._entryFiles[trackedFile.fullPath];
             var source = self._getSource(m);
             var code = source.code;
             var sourceMap = trackedFile && source.map();
@@ -130,7 +150,8 @@ class WebpackPostprocessor {
               original: trackedFile,
               content: code,
               sourceMap: sourceMap,
-              ts: !trackedFile ? 1 : undefined // caching non tracked files in browser/phantomjs until wallaby restarts
+              ts: !trackedFile ? 1 : undefined, // caching non tracked files in browser/phantomjs until wallaby restarts
+              order: isEntryFile ? trackedFile.order : undefined
             }));
 
             // if the file is not tracked, preventing re-build it
@@ -145,6 +166,10 @@ class WebpackPostprocessor {
               self._moduleIds[moduleId] = m.id || true;
               // modules unknown so far force test loader script reload
               self._loaderEmitRequired = true;
+            }
+
+            if (trackedFile) {
+              trackedFileIds[trackedFile.fullPath] = moduleId;
             }
           });
 
@@ -161,6 +186,16 @@ class WebpackPostprocessor {
                 // dependency lookup
               + JSON.stringify(self._moduleIds) + ';'
             }));
+
+            // Executing all entry files
+            if (self._entryPatterns && self._entryFiles && !_.isEmpty(self._entryFiles)) {
+              createFilePromises.push(wallaby.createFile({
+                order: Infinity,
+                path: 'wallaby_webpack_entry.js',
+                content: _.reduce(_.values(self._entryFiles),
+                  (memo, file) => memo + (file.test ? '' : 'window.__moduleBundler.require(' + JSON.stringify(trackedFileIds[file.fullPath]) + ');'), '')
+              }));
+            }
           }
 
           logger.debug('Emitting %s files', createFilePromises.length);
@@ -243,11 +278,16 @@ class WebpackPostprocessor {
   }
 
   static _getLoaderContent() {
+    // webpack prelude (taken from browserify, slightly modified to include webpack specific module.id and module.loaded)
+    var prelude = '(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module \'"+o+"\'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{},id:o,loaded:false};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r);l.loaded=true}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})';
     return 'window.__moduleBundler = {};'
       + 'window.__moduleBundler.cache = {};'
+      + 'window.__moduleBundler.require = function (m) {'
+      + prelude
+      + '(window.__moduleBundler.cache, {}, [m]);'
+      + '};'
       + 'window.__moduleBundler.loadTests = function () {'
-        // webpack prelude (taken from browserify, slightly modified to include webpack specific module.id and module.loaded)
-      + '(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module \'"+o+"\'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{},id:o,loaded:false};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r);l.loaded=true}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})'
+      + prelude
         // passing accumulated files and entry points (webpack-ed tests for the current sandbox)
       + '(window.__moduleBundler.cache, {}, (function(){ var testIds = []; for(var i = 0, len = wallaby.loadedTests.length; i < len; i++) { var test = wallaby.loadedTests[i]; if (test.substr(-7) === ".wbp.js") testIds.push(wallaby.baseDir + test.substr(0, test.length - 7)); } return testIds; })()); };'
   }
