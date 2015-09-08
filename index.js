@@ -44,6 +44,7 @@ class WebpackPostprocessor {
     this._compilationFileTimestamps = {};
     this._affectedModules = [];
     this._moduleIds = {};
+    this._moduleIdByPath = {};
     this._allTrackedFiles = {};
     this._entryFiles = {};
     this._inputFileSystem = new WallabyInputFileSystem(this);
@@ -131,7 +132,6 @@ class WebpackPostprocessor {
         })
         .then(function () {
           var createFilePromises = [];
-          var trackedFileIds = {};
           _.each(self._affectedModules, function (m) {
             var trackedFile = m.resource && affectedFiles[m.resource];
             var isEntryFile = trackedFile && self._entryPatterns && self._entryFiles[trackedFile.fullPath];
@@ -169,7 +169,7 @@ class WebpackPostprocessor {
             }
 
             if (trackedFile) {
-              trackedFileIds[trackedFile.fullPath] = moduleId;
+              self._moduleIdByPath[trackedFile.fullPath] = moduleId;
             }
           });
 
@@ -193,7 +193,7 @@ class WebpackPostprocessor {
                 order: Infinity,
                 path: 'wallaby_webpack_entry.js',
                 content: _.reduce(_.values(self._entryFiles),
-                  (memo, file) => memo + (file.test ? '' : 'window.__moduleBundler.require(' + JSON.stringify(trackedFileIds[file.fullPath]) + ');'), '')
+                  (memo, file) => memo + (file.test ? '' : 'window.__moduleBundler.require(' + JSON.stringify(self._moduleIdByPath[file.fullPath]) + ');'), '')
               }));
             }
           }
