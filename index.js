@@ -150,7 +150,6 @@ class WebpackPostprocessor {
               original: trackedFile,
               content: code,
               sourceMap: sourceMap,
-              ts: !trackedFile ? 1 : undefined, // caching non tracked files in browser/phantomjs until wallaby restarts
               order: isEntryFile ? trackedFile.order : undefined
             }));
 
