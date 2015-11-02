@@ -134,8 +134,9 @@ class WebpackPostprocessor {
           var createFilePromises = [];
           _.each(self._affectedModules, function (m) {
             var trackedFile = m.resource && affectedFiles[m.resource];
-            var isEntryFile = trackedFile && self._entryPatterns && self._entryFiles[trackedFile.fullPath];
-            var source = self._getSource(m);
+            var isEntryFile = trackedFile && self._entryFiles[trackedFile.fullPath];
+            var isTestFile = trackedFile && trackedFile.test;
+            var source = self._getSource(m, trackedFile);
             var code = source.code;
             var sourceMap = trackedFile && source.map();
 
@@ -145,12 +146,12 @@ class WebpackPostprocessor {
               path: trackedFile
                 // adding id because same resource may be loaded more than once with different ids, for example:
                 // var a = require('./a'); var b = require('imports?window=mocked!./a');
-                ? (trackedFile.path + (m.id ? ('.' + m.id) : '') + '.wbp.js')
+                ? (trackedFile.path + ((_.isNumber(m.id) && !isTestFile) ? ('.' + m.id) : '') + '.wbp.js')
                 : path.join('__modules', m.id + '.js'),
               original: trackedFile,
               content: code,
               sourceMap: sourceMap,
-              order: isEntryFile ? trackedFile.order : undefined
+              order: (isEntryFile && self._entryPatterns) ? trackedFile.order : undefined
             }));
 
             // if the file is not tracked, preventing re-build it
@@ -158,11 +159,10 @@ class WebpackPostprocessor {
               self._compilationFileTimestamps[m.resource] = 1;
             }
 
-            // entry modules (tests) have id = 0,
-            // caching them by file path so that we can load them from __moduleBundler.loadTests
-            var moduleId = m.id || m.resource;
+            // caching test entry modules by file path so that we can load them from __moduleBundler.loadTests
+            var moduleId = WebpackPostprocessor._getModuleId(m, trackedFile);
             if (!self._moduleIds[moduleId]) {
-              self._moduleIds[moduleId] = m.id || true;
+              self._moduleIds[moduleId] = m.id;
               // modules unknown so far force test loader script reload
               self._loaderEmitRequired = true;
             }
@@ -258,7 +258,7 @@ class WebpackPostprocessor {
     return compiler;
   }
 
-  _getSource(m) {
+  _getSource(m, file) {
     var self = this;
     // to avoid wrapping module into a function, we do it a bit differently in _wrapSourceFile
     self._moduleTemplate._plugins['render'] = [];
@@ -266,9 +266,15 @@ class WebpackPostprocessor {
     var node = self._moduleTemplate.render(m, self._dependencyTemplates, {modules: [m]});
 
     return {
-      code: WebpackPostprocessor._wrapSourceFile(m.id || m.resource, node.source()),
+      code: WebpackPostprocessor._wrapSourceFile(WebpackPostprocessor._getModuleId(m, file), node.source()),
       map: () => node.map()
     };
+  }
+
+  static _getModuleId(m, file) {
+    var testFile = file && file.test;
+    if (testFile || !_.isNumber(m.id)) return m.resource;
+    return m.id;
   }
 
   static _wrapSourceFile(id, content) {
