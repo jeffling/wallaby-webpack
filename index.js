@@ -288,14 +288,15 @@ class WebpackPostprocessor {
     var prelude = '(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module \'"+o+"\'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{},id:o,loaded:false};var rq=function(e){var n=t[o][1][e];return s(n?n:e)};rq.e=function(a1,a2){a2.call(null,rq)};t[o][0].call(l.exports,rq,l,l.exports,e,t,n,r);l.loaded=true}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})';
     return 'window.__moduleBundler = {};'
       + 'window.__moduleBundler.cache = {};'
+      + 'window.__moduleBundler.moduleCache = {};'
       + 'window.__moduleBundler.require = function (m) {'
       + prelude
-      + '(window.__moduleBundler.cache, {}, [m]);'
+      + '(window.__moduleBundler.cache, window.__moduleBundler.moduleCache, [m]);'
       + '};'
       + 'window.__moduleBundler.loadTests = function () {'
       + prelude
         // passing accumulated files and entry points (webpack-ed tests for the current sandbox)
-      + '(window.__moduleBundler.cache, {}, (function(){ var testIds = []; for(var i = 0, len = wallaby.loadedTests.length; i < len; i++) { var test = wallaby.loadedTests[i]; if (test.substr(-7) === ".wbp.js") testIds.push(wallaby.baseDir + test.substr(0, test.length - 7)); } return testIds; })()); };'
+      + '(window.__moduleBundler.cache, window.__moduleBundler.moduleCache, (function(){ var testIds = []; for(var i = 0, len = wallaby.loadedTests.length; i < len; i++) { var test = wallaby.loadedTests[i]; if (test.substr(-7) === ".wbp.js") testIds.push(wallaby.baseDir + test.substr(0, test.length - 7)); } return testIds; })()); };'
   }
 }
 
