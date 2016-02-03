@@ -293,10 +293,11 @@ class WebpackPostprocessor {
       + prelude
       + '(window.__moduleBundler.cache, window.__moduleBundler.moduleCache, [m]);'
       + '};'
-      + 'window.__moduleBundler.loadTests = function () {'
+      + 'window.__moduleBundler.loadTests = function () { window.wallaby._startWhenReceiverIsReady(function() {'
       + prelude
         // passing accumulated files and entry points (webpack-ed tests for the current sandbox)
-      + '(window.__moduleBundler.cache, window.__moduleBundler.moduleCache, (function(){ var testIds = []; for(var i = 0, len = wallaby.loadedTests.length; i < len; i++) { var test = wallaby.loadedTests[i]; if (test.substr(-7) === ".wbp.js") testIds.push(wallaby.baseDir + test.substr(0, test.length - 7)); } return testIds; })()); };'
+      + '(window.__moduleBundler.cache, window.__moduleBundler.moduleCache, (function(){ var testIds = []; for(var i = 0, len = wallaby.loadedTests.length; i < len; i++) { var test = wallaby.loadedTests[i]; if (test.substr(-7) === ".wbp.js") testIds.push(wallaby.baseDir + test.substr(0, test.length - 7)); } return testIds; })());'
+      + '});};'
   }
 }
 
