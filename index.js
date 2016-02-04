@@ -93,8 +93,14 @@ class WebpackPostprocessor {
             memo[entryFile.fullPath] = entryFile.fullPath;
             return memo;
           }, {}),
-          resolve: {modulesDirectories: wallaby.nodeModulesDir ? [wallaby.nodeModulesDir] : []},
-          resolveLoader: {modulesDirectories: wallaby.nodeModulesDir ? [wallaby.nodeModulesDir] : []}
+          resolve: {
+            modulesDirectories: wallaby.nodeModulesDir ? [wallaby.nodeModulesDir] : [],
+            modules: wallaby.nodeModulesDir ? [wallaby.nodeModulesDir] : []
+          },
+          resolveLoader: {
+            modulesDirectories: wallaby.nodeModulesDir ? [wallaby.nodeModulesDir] : [],
+            modules: wallaby.nodeModulesDir ? [wallaby.nodeModulesDir] : []
+          }
         });
 
         self._affectedModules = [];
@@ -218,17 +224,31 @@ class WebpackPostprocessor {
       mandatoryOpts.resolve.modulesDirectories.concat((this._opts.resolve || {}).modulesDirectories || []);
     var loaderModulesDirectories = mergedOpts.resolveLoader.modulesDirectories =
       mandatoryOpts.resolveLoader.modulesDirectories.concat((this._opts.resolveLoader || {}).modulesDirectories || []);
+    var modules = mergedOpts.resolve.modules =
+      mandatoryOpts.resolve.modules.concat((this._opts.resolve || {}).modules || []);
+    var loaderModules = mergedOpts.resolveLoader.modules =
+      mandatoryOpts.resolveLoader.modules.concat((this._opts.resolveLoader || {}).modules || []);
 
     // adding default module dirs if nothing was passed from user
     if (!this._opts.resolve || !this._opts.resolve.modulesDirectories || !this._opts.resolve.modulesDirectories.length) {
       modulesDirectories.push('node_modules');
       modulesDirectories.push('web_modules');
     }
+    if (!this._opts.resolve || !this._opts.resolve.modules || !this._opts.resolve.modules.length) {
+      modules.push('node_modules');
+      modules.push('web_modules');
+    }
     if (!this._opts.resolveLoader || !this._opts.resolveLoader.modulesDirectories || !this._opts.resolveLoader.modulesDirectories.length) {
       loaderModulesDirectories.push('node_modules');
       loaderModulesDirectories.push('web_modules');
       loaderModulesDirectories.push('node_loaders');
       loaderModulesDirectories.push('web_loaders');
+    }
+    if (!this._opts.resolveLoader || !this._opts.resolveLoader.modules || !this._opts.resolveLoader.modules.length) {
+      loaderModules.push('node_modules');
+      loaderModules.push('web_modules');
+      loaderModules.push('node_loaders');
+      loaderModules.push('web_loaders');
     }
 
     return this._configureCompiler(this._webpack(mergedOpts));
