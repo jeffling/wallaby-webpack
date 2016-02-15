@@ -305,7 +305,7 @@ class WebpackPostprocessor {
   static _getLoaderContent() {
     // webpack prelude, taken from browserify,
     // slightly modified to include webpack specific module.id, module.loaded and require.e (require.ensure)
-    var prelude = '(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module \'"+o+"\'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{},id:o,loaded:false};var rq=function(e){var n=t[o][1][e];return s(n?n:e)};rq.e=function(a1,a2){a2.call(null,rq)};t[o][0].call(l.exports,rq,l,l.exports,e,t,n,r);l.loaded=true}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})';
+    var prelude = '(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module \'"+o+"\'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{},id:o,loaded:false};var rq=function(e){var n=t[o][1][e];return s(n?n:e)};rq.e=function(a1,a2){a2.call(null,rq)};rq.m=t;rq.c=n;t[o][0].call(l.exports,rq,l,l.exports,e,t,n,r);l.loaded=true}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})';
     return 'window.__moduleBundler = {};'
       + 'window.__moduleBundler.cache = {};'
       + 'window.__moduleBundler.moduleCache = {};'
