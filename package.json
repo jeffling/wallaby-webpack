@@ -13,7 +13,7 @@
   "author": "Jeff Ling <jeff@bench.co>",
   "license": "ISC",
   "dependencies": {
-    "graceful-fs": "^3.0.6",
+    "graceful-fs": "^4.1.3",
     "lodash": "^3.5.0",
     "minimatch": "2.0.1"
   },
