@@ -79,10 +79,18 @@ class WebpackPostprocessor {
 
         affectedFiles = self._allTrackedFiles = WebpackPostprocessor._fileArrayToObject(wallaby.allFiles);
 
+        // Entry files ordered by entry pattern index
         self._entryFiles = _.reduce(!self._entryPatterns
             ? wallaby.allTestFiles
-            : _.filter(self._allTrackedFiles, file => _.find(self._entryPatterns, pattern => mm(file.path, pattern))),
+            : _.sortBy(_.filter(self._allTrackedFiles, file => {
+            var satisfiesAnyEntryPattern = _.find(self._entryPatterns, (pattern, patternIndex) => (file.patternIndex = patternIndex, mm(file.path, pattern)));
+            if (!satisfiesAnyEntryPattern) {
+              delete file.patternIndex;
+            }
+            return satisfiesAnyEntryPattern;
+          }), 'patternIndex'),
           function (memo, file) {
+            delete file.patternIndex;
             memo[file.fullPath] = file;
             return memo;
           }, {});
@@ -166,7 +174,7 @@ class WebpackPostprocessor {
             }
 
             // caching test entry modules by file path so that we can load them from __moduleBundler.loadTests
-            var moduleId = WebpackPostprocessor._getModuleId(m, trackedFile);
+            var moduleId = WebpackPostprocessor._getModuleId(m, trackedFile, isEntryFile);
             if (!self._moduleIds[moduleId]) {
               self._moduleIds[moduleId] = m.id;
               // modules unknown so far force test loader script reload
@@ -286,14 +294,18 @@ class WebpackPostprocessor {
     var node = self._moduleTemplate.render(m, self._dependencyTemplates, {modules: [m]});
 
     return {
-      code: WebpackPostprocessor._wrapSourceFile(WebpackPostprocessor._getModuleId(m, file), node.source()),
+      code: WebpackPostprocessor._wrapSourceFile(WebpackPostprocessor._getModuleId(m, file, self._isEntryFile(file)), node.source()),
       map: () => node.map()
     };
   }
 
-  static _getModuleId(m, file) {
+  _isEntryFile(file) {
+    return this._entryPatterns && file && !!this._entryFiles[file.fullPath];
+  }
+
+  static _getModuleId(m, file, isEntryFile) {
     var testFile = file && file.test;
-    if (testFile || !_.isNumber(m.id)) return m.resource;
+    if (testFile || !_.isNumber(m.id) || isEntryFile) return m.resource;
     return m.id;
   }
 
