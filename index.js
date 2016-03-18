@@ -229,13 +229,13 @@ class WebpackPostprocessor {
     var mergedOpts = _.merge({}, this._opts, mandatoryOpts);
 
     var modulesDirectories = mergedOpts.resolve.modulesDirectories =
-      mandatoryOpts.resolve.modulesDirectories.concat((this._opts.resolve || {}).modulesDirectories || []);
+      ((this._opts.resolve || {}).modulesDirectories || []).concat(mandatoryOpts.resolve.modulesDirectories);
     var loaderModulesDirectories = mergedOpts.resolveLoader.modulesDirectories =
-      mandatoryOpts.resolveLoader.modulesDirectories.concat((this._opts.resolveLoader || {}).modulesDirectories || []);
+      ((this._opts.resolveLoader || {}).modulesDirectories || []).concat(mandatoryOpts.resolveLoader.modulesDirectories);
     var modules = mergedOpts.resolve.modules =
-      mandatoryOpts.resolve.modules.concat((this._opts.resolve || {}).modules || []);
+      ((this._opts.resolve || {}).modules || []).concat(mandatoryOpts.resolve.modules);
     var loaderModules = mergedOpts.resolveLoader.modules =
-      mandatoryOpts.resolveLoader.modules.concat((this._opts.resolveLoader || {}).modules || []);
+      ((this._opts.resolveLoader || {}).modules || []).concat(mandatoryOpts.resolveLoader.modules);
 
     // adding default module dirs if nothing was passed from user
     if (!this._opts.resolve || !this._opts.resolve.modulesDirectories || !this._opts.resolve.modulesDirectories.length) {
