@@ -275,6 +275,16 @@ class WebpackPostprocessor {
       compilation.plugin('build-module', function (m) {
         self._affectedModules.push(m);
       });
+
+      // These plugins and operation are not necessary in wallaby context and very time consuming with many chunks
+      var originalApplyPlugins = compilation.applyPlugins;
+      compilation.applyPlugins = function (name) {
+        if (name === 'optimize-module-order' || name === 'optimize-chunk-order' || name === 'optimize-chunk-ids') return;
+        return originalApplyPlugins.apply(this, arguments);
+      };
+      compilation.createHash = function () {
+
+      };
     });
 
     // no need to emit chunks as we emit individual modules
