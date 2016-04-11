@@ -283,7 +283,7 @@ class WebpackPostprocessor {
         return originalApplyPlugins.apply(this, arguments);
       };
       compilation.createHash = function () {
-
+        this.hash = '';
       };
     });
 
