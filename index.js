@@ -327,8 +327,16 @@ class WebpackPostprocessor {
   static _getLoaderContent() {
     // webpack prelude, taken from browserify,
     // modified to include webpack specific module.id, module.loaded (and module.i, module.l and module.e for Webpack 2),
-    // require.e (require.ensure), __webpack_require__.m, __webpack_require__.c
-    var prelude = '(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module \'"+o+"\'");throw f.code="MODULE_NOT_FOUND",f}var exp={};var l=n[o]={exports:exp,e:exp,id:o,i:o,loaded:false,l:false};var rq=function(e){var n=t[o][1][e];return s(n?n:e)};rq.e=function(a1,a2){a2.call(null,rq)};rq.m=tm;rq.c=n;rq.p="";t[o][0].call(exp,rq,l,exp,e,t,n,r);l.exports=l.e=((exp===l.e)?l.exports:l.e);l.l=true;if(Object.getOwnPropertyDescriptor(l, "loaded").writable){l.loaded=true}}return n[o].exports}var tm={};for(var pr in t){if(t.hasOwnProperty(pr)){tm[pr]=(function(orf){return function(md,mde,wrq){return orf.call(this,wrq,md,mde);}})(t[pr][0]);}}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})';
+    // __webpack_require__.e (require.ensure),
+    // __webpack_require__.m,
+    // __webpack_require__.c,
+    // __webpack_require__.p,
+    // __webpack_require__.i,
+    // __webpack_require__.d,
+    // __webpack_require__.n,
+    // __webpack_require__.o,
+    // (see webpack/lib/MainTemplate.js)
+    var prelude = '(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module \'"+o+"\'");throw f.code="MODULE_NOT_FOUND",f}var exp={};var l=n[o]={exports:exp,e:exp,id:o,i:o,loaded:false,l:false};var rq=function(e){var n=t[o][1][e];return s(n?n:e)};rq.e=function(a1,a2){a2.call(null,rq)};rq.m=tm;rq.c=n;rq.p="";rq.i=function(value){return value;};rq.d=function(exports,name,getter){Object.defineProperty(exports,name,{configurable:false,enumerable:true,get:getter});};rq.o=function(object,property){return Object.prototype.hasOwnProperty.call(object,property);};rq.n=function(module){var getter=module&&module.__esModule ? function getDefault(){return module["default"];} : function getModuleExports(){return module;};rq.d(getter,"a",getter);return getter;};t[o][0].call(exp,rq,l,exp,e,t,n,r);l.exports=l.e=((exp===l.e)?l.exports:l.e);l.l=true;if(Object.getOwnPropertyDescriptor(l, "loaded").writable){l.loaded=true}}return n[o].exports}var tm={};for(var pr in t){if(t.hasOwnProperty(pr)){tm[pr]=(function(orf){return function(md,mde,wrq){return orf.call(this,wrq,md,mde);}})(t[pr][0]);}}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})';
     return 'window.__moduleBundler = {};'
       + 'window.__moduleBundler.cache = {};'
       + 'window.__moduleBundler.moduleCache = {};'
