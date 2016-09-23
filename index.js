@@ -100,16 +100,8 @@ class WebpackPostprocessor {
           entry: _.reduce(self._entryFiles, (memo, entryFile) => {
             memo[entryFile.fullPath] = entryFile.fullPath;
             return memo;
-          }, {}),
-          resolve: {
-            modulesDirectories: wallaby.nodeModulesDir ? [wallaby.nodeModulesDir] : [],
-            modules: wallaby.nodeModulesDir ? [wallaby.nodeModulesDir] : []
-          },
-          resolveLoader: {
-            modulesDirectories: wallaby.nodeModulesDir ? [wallaby.nodeModulesDir] : [],
-            modules: wallaby.nodeModulesDir ? [wallaby.nodeModulesDir] : []
-          }
-        });
+          }, {})
+        }, wallaby.nodeModulesDir);
 
         self._affectedModules = [];
         self._moduleIds = {};
@@ -225,41 +217,35 @@ class WebpackPostprocessor {
     }, {});
   }
 
-  _createCompiler(mandatoryOpts) {
+  _createCompiler(mandatoryOpts, nodeModulesDir) {
+    var isOptionsSchemaEnforced = !!this._webpack.validate;
     var mergedOpts = _.merge({}, this._opts, mandatoryOpts);
 
-    var modulesDirectories = mergedOpts.resolve.modulesDirectories =
-      ((this._opts.resolve || {}).modulesDirectories || []).concat(mandatoryOpts.resolve.modulesDirectories);
-    var loaderModulesDirectories = mergedOpts.resolveLoader.modulesDirectories =
-      ((this._opts.resolveLoader || {}).modulesDirectories || []).concat(mandatoryOpts.resolveLoader.modulesDirectories);
-    var modules = mergedOpts.resolve.modules =
-      ((this._opts.resolve || {}).modules || []).concat(mandatoryOpts.resolve.modules);
-    var loaderModules = mergedOpts.resolveLoader.modules =
-      ((this._opts.resolveLoader || {}).modules || []).concat(mandatoryOpts.resolveLoader.modules);
-
-    // adding default module dirs if nothing was passed from user
-    if (!this._opts.resolve || !this._opts.resolve.modulesDirectories || !this._opts.resolve.modulesDirectories.length) {
-      modulesDirectories.push('node_modules');
-      modulesDirectories.push('web_modules');
-    }
-    if (!this._opts.resolve || !this._opts.resolve.modules || !this._opts.resolve.modules.length) {
-      modules.push('node_modules');
-      modules.push('web_modules');
-    }
-    if (!this._opts.resolveLoader || !this._opts.resolveLoader.modulesDirectories || !this._opts.resolveLoader.modulesDirectories.length) {
-      loaderModulesDirectories.push('node_modules');
-      loaderModulesDirectories.push('web_modules');
-      loaderModulesDirectories.push('node_loaders');
-      loaderModulesDirectories.push('web_loaders');
-    }
-    if (!this._opts.resolveLoader || !this._opts.resolveLoader.modules || !this._opts.resolveLoader.modules.length) {
-      loaderModules.push('node_modules');
-      loaderModules.push('web_modules');
-      loaderModules.push('node_loaders');
-      loaderModules.push('web_loaders');
+    WebpackPostprocessor._configureModules('modules', false, nodeModulesDir, this._opts, mergedOpts);
+    WebpackPostprocessor._configureModules('modules', true, nodeModulesDir, this._opts, mergedOpts);
+    if (!isOptionsSchemaEnforced) {
+      WebpackPostprocessor._configureModules('modulesDirectories', false, nodeModulesDir, this._opts, mergedOpts);
+      WebpackPostprocessor._configureModules('modulesDirectories', true, nodeModulesDir, this._opts, mergedOpts);
     }
 
     return this._configureCompiler(this._webpack(mergedOpts));
+  }
+
+  static _configureModules(modulesSettingName, isForLoaderResolve, modulesDir, userOptions, effectiveOptions) {
+    var resolvePath = 'resolve' + (isForLoaderResolve ? 'Loader' : '');
+    var effectiveOptionsResolve = effectiveOptions[resolvePath] = effectiveOptions[resolvePath] || {};
+
+    var modules = effectiveOptionsResolve[modulesSettingName] =
+      ((userOptions[resolvePath] || {})[modulesSettingName] || []).concat([modulesDir]);
+
+    if (!userOptions[resolvePath] || !userOptions[resolvePath][modulesSettingName] || !userOptions[resolvePath][modulesSettingName].length) {
+      modules.push('node_modules');
+      modules.push('web_modules');
+      if (isForLoaderResolve) {
+        modules.push('node_loaders');
+        modules.push('web_loaders');
+      }
+    }
   }
 
   _configureCompiler(compiler) {
