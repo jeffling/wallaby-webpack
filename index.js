@@ -56,10 +56,12 @@ class WebpackPostprocessor {
 
   createPostprocessor() {
     var self = this;
-    try {
-      this._webpack = require('webpack');
-    }
-    catch (e) {
+
+    this._webpack = WebpackPostprocessor._tryRequireFrom('webpack')
+      || WebpackPostprocessor._tryRequireFrom('react-scripts/node_modules/webpack')
+      || WebpackPostprocessor._tryRequireFrom('angular-cli/node_modules/webpack');
+
+    if (!this._webpack) {
       console.error('Webpack node module is not found, missing `npm install webpack --save-dev`?');
       return;
     }
@@ -188,7 +190,7 @@ class WebpackPostprocessor {
               order: -1,  // need to be the first file to load
               path: 'wallaby-webpack.js',
               content: WebpackPostprocessor._getLoaderContent() + 'window.__moduleBundler.deps = '
-                // dependency lookup
+              // dependency lookup
               + JSON.stringify(self._moduleIds) + ';'
             }));
 
@@ -299,6 +301,15 @@ class WebpackPostprocessor {
     return this._entryPatterns && file && !!this._entryFiles[file.fullPath];
   }
 
+  static _tryRequireFrom(location) {
+    try {
+      return require(location);
+    }
+    catch (e) {
+      return false;
+    }
+  }
+
   static _getModuleId(m, file, isEntryFile) {
     var testFile = file && file.test;
     if (testFile || !_.isNumber(m.id) || isEntryFile) return m.resource;
@@ -332,7 +343,7 @@ class WebpackPostprocessor {
       + '};'
       + 'window.__moduleBundler.loadTests = function () { window.wallaby._startWhenReceiverIsReady(function() {'
       + prelude
-        // passing accumulated files and entry points (webpack-ed tests for the current sandbox)
+      // passing accumulated files and entry points (webpack-ed tests for the current sandbox)
       + '(window.__moduleBundler.cache, window.__moduleBundler.moduleCache, (function(){ var testIds = []; for(var i = 0, len = wallaby.loadedTests.length; i < len; i++) { var test = wallaby.loadedTests[i]; if (test.substr(-7) === ".wbp.js") testIds.push(wallaby.baseDir + test.substr(0, test.length - 7)); } return testIds; })());'
       + '});};'
   }
