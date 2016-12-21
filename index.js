@@ -129,7 +129,7 @@ class WebpackPostprocessor {
               }
               var lastCompilation = self._compiler.lastCompilation;
               if (lastCompilation && lastCompilation.errors && lastCompilation.errors.length) {
-                _.each(lastCompilation.errors, e => logger.error(e && (e.stack || e.message)));
+                _.each(lastCompilation.errors, e => logger.error(e && ((e.message || '') + (e.stack || ''))));
               }
 
               resolve();
