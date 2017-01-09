@@ -123,6 +123,7 @@ class WebpackPostprocessor {
       return new Promise(
         function (resolve, reject) {
           try {
+            logger.debug('Webpack compilation started');
             // incremental bundling
             self._compiler.compile((err, stats) => {
               if (err) {
@@ -141,6 +142,7 @@ class WebpackPostprocessor {
           }
         })
         .then(function () {
+          logger.debug('Webpack compilation finished');
           var createFilePromises = [];
           _.each(self._affectedModules, function (m) {
             var trackedFile = m.resource && affectedFiles[m.resource];
