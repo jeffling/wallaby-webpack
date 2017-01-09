@@ -47,6 +47,7 @@ class WebpackPostprocessor {
     this._moduleIdByPath = {};
     this._allTrackedFiles = {};
     this._entryFiles = {};
+    this._testDependencies = {};
     this._inputFileSystem = new WallabyInputFileSystem(this);
   }
 
@@ -109,6 +110,7 @@ class WebpackPostprocessor {
         self._moduleIds = {};
         self._compilationCache = {};
         self._compilationFileTimestamps = {};
+        self._testDependencies = {};
 
         self._loaderEmitRequired = true;
       }
@@ -147,6 +149,12 @@ class WebpackPostprocessor {
             var source = self._getSource(m, trackedFile);
             var code = source.code;
             var sourceMap = trackedFile && source.map();
+
+            if (isTestFile && m.dependencies) {
+              var depIds = [];
+              self._traverseDependencies(m.dependencies, depIds);
+              self._testDependencies[trackedFile.id] = depIds;
+            }
 
             createFilePromises.push(wallaby.createFile({
               // adding the suffix to store webpack file along with the original copies for tracked files
@@ -207,9 +215,21 @@ class WebpackPostprocessor {
 
           logger.debug('Emitting %s files', createFilePromises.length);
 
-          return Promise.all(createFilePromises);
+          return Promise.all(createFilePromises).then(function () {
+            return {testDependencies: self._testDependencies};
+          });
         });
     };
+  }
+
+  _traverseDependencies(deps, depIds) {
+    var self = this;
+    _.each(deps, function (dep) {
+      if (!dep || !dep.module) return;
+      var trackedDepFile = dep.module.resource && self._allTrackedFiles[dep.module.resource];
+      if (trackedDepFile) depIds.push(trackedDepFile.id);
+      self._traverseDependencies(dep.module.dependencies, depIds);
+    });
   }
 
   static _fileArrayToObject(files) {
