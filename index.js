@@ -152,7 +152,7 @@ class WebpackPostprocessor {
 
             if (isTestFile && m.dependencies) {
               var depIds = [];
-              self._traverseDependencies(m.dependencies, depIds);
+              self._traverseDependencies(m.dependencies, depIds, {});
               self._testDependencies[trackedFile.id] = depIds;
             }
 
@@ -222,13 +222,16 @@ class WebpackPostprocessor {
     };
   }
 
-  _traverseDependencies(deps, depIds) {
+  _traverseDependencies(deps, depIds, visitedDeps) {
     var self = this;
     _.each(deps, function (dep) {
       if (!dep || !dep.module) return;
+      var depResourceId = dep.module.resource || '';
+      if (visitedDeps[depResourceId]) return;
+      visitedDeps[depResourceId] = true;
       var trackedDepFile = dep.module.resource && self._allTrackedFiles[dep.module.resource];
       if (trackedDepFile) depIds.push(trackedDepFile.id);
-      self._traverseDependencies(dep.module.dependencies, depIds);
+      self._traverseDependencies(dep.module.dependencies, depIds, visitedDeps);
     });
   }
 
