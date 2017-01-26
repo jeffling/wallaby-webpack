@@ -34,7 +34,9 @@ class WebpackPostprocessor {
     this._opts = opts || {};
 
     this._entryPatterns = this._opts.entryPatterns;
+    this._preserveEntryFileLoadOrder = this._opts.preserveEntryFileLoadOrder;
     delete this._opts.entryPatterns;
+    delete this._opts.preserveEntryFileLoadOrder;
 
     if (this._entryPatterns && _.isString(this._entryPatterns)) {
       this._entryPatterns = [this._entryPatterns];
@@ -86,12 +88,12 @@ class WebpackPostprocessor {
         self._entryFiles = _.reduce(!self._entryPatterns
             ? wallaby.allTestFiles
             : _.sortBy(_.filter(self._allTrackedFiles, file => {
-            var satisfiesAnyEntryPattern = _.find(self._entryPatterns, (pattern, patternIndex) => (file.patternIndex = patternIndex, mm(file.path, pattern)));
-            if (!satisfiesAnyEntryPattern) {
-              delete file.patternIndex;
-            }
-            return satisfiesAnyEntryPattern;
-          }), 'patternIndex'),
+              var satisfiesAnyEntryPattern = _.find(self._entryPatterns, (pattern, patternIndex) => (file.patternIndex = patternIndex, mm(file.path, pattern)));
+              if (!satisfiesAnyEntryPattern) {
+                delete file.patternIndex;
+              }
+              return satisfiesAnyEntryPattern;
+            }), 'patternIndex'),
           function (memo, file) {
             delete file.patternIndex;
             memo[file.fullPath] = file;
@@ -206,10 +208,11 @@ class WebpackPostprocessor {
 
             // Executing all entry files
             if (self._entryPatterns && self._entryFiles && !_.isEmpty(self._entryFiles)) {
+              var entryFilesToLoad = _.values(self._entryFiles);
               createFilePromises.push(wallaby.createFile({
-                order: Infinity,
+                order: self._preserveEntryFileLoadOrder ? entryFilesToLoad[0].order : Infinity,
                 path: 'wallaby_webpack_entry.js',
-                content: _.reduce(_.values(self._entryFiles),
+                content: _.reduce(entryFilesToLoad,
                   (memo, file) => memo + (file.test ? '' : 'window.__moduleBundler.require(' + JSON.stringify(self._moduleIdByPath[file.fullPath]) + ');'), '')
               }));
             }
