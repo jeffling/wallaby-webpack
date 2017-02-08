@@ -84,6 +84,10 @@ class WebpackPostprocessor {
 
         affectedFiles = self._allTrackedFiles = WebpackPostprocessor._fileArrayToObject(wallaby.allFiles);
 
+        var entryPatternsNotMatchingAnyFiles = _.reduce(self._entryPatterns || [], function (memo, p) {
+          memo[p] = p;
+          return memo;
+        }, {});
         // Entry files ordered by entry pattern index
         self._entryFiles = _.reduce(!self._entryPatterns
             ? wallaby.allTestFiles
@@ -91,7 +95,10 @@ class WebpackPostprocessor {
               var satisfiesAnyEntryPattern = _.find(self._entryPatterns, (pattern, patternIndex) => (file.patternIndex = patternIndex, mm(file.path, pattern)));
               if (!satisfiesAnyEntryPattern) {
                 delete file.patternIndex;
+              } else {
+                delete entryPatternsNotMatchingAnyFiles[satisfiesAnyEntryPattern];
               }
+
               return satisfiesAnyEntryPattern;
             }), 'patternIndex'),
           function (memo, file) {
@@ -99,7 +106,9 @@ class WebpackPostprocessor {
             memo[file.fullPath] = file;
             return memo;
           }, {});
-
+        if (!_.isEmpty(entryPatternsNotMatchingAnyFiles)) {
+          _.each(entryPatternsNotMatchingAnyFiles, p => logger.error('Specified entry pattern "' + p + '" does not match any file.'));
+        }
         self._compiler = self._createCompiler({
           cache: false,   // wallaby post processor is using its own cache
           entry: _.reduce(self._entryFiles, (memo, entryFile) => {
