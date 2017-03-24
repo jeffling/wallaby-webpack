@@ -301,15 +301,19 @@ class WebpackPostprocessor {
         self._affectedModules.push(m);
       });
 
-      // These plugins and operation are not necessary in wallaby context and very time consuming with many chunks
-      var originalApplyPlugins = compilation.applyPlugins;
-      compilation.applyPlugins = function (name) {
-        if (name === 'optimize-module-order' || name === 'optimize-chunk-order' || name === 'optimize-chunk-ids') return;
-        return originalApplyPlugins.apply(this, arguments);
-      };
+      // Some plugins and `createHash` operation are not necessary in wallaby context and very time consuming with many chunks
+
+      self._removePlugins('', compilation);
+      self._removePlugins(0, compilation);
+      self._removePlugins(1, compilation);
+      self._removePlugins(2, compilation);
+
       compilation.createHash = function () {
         this.hash = '';
       };
+      compilation.plugin('should-generate-chunk-assets', function() {
+        return false;
+      });
     });
 
     // no need to emit chunks as we emit individual modules
@@ -319,6 +323,18 @@ class WebpackPostprocessor {
 
     compiler.inputFileSystem = self._inputFileSystem;
     return compiler;
+  }
+
+
+  _removePlugins(i, compilation){
+    var name = 'applyPlugins' + i;
+    var originalApplyPlugins = compilation['applyPlugins' + i];
+    if(originalApplyPlugins){
+      compilation[name] = function (name) {
+        if (name === 'optimize-module-order' || name === 'optimize-chunk-order' || name === 'optimize-chunk-ids') return;
+        return originalApplyPlugins.apply(this, arguments);
+      };
+    }
   }
 
   _getSource(m, file) {
