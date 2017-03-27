@@ -1,6 +1,6 @@
 {
   "name": "wallaby-webpack",
-  "version": "0.0.37",
+  "version": "0.0.38",
   "description": "Webpack postprocessor for wallaby.js",
   "main": "index.js",
   "scripts": {
