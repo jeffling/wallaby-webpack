@@ -301,7 +301,7 @@ class WebpackPostprocessor {
         self._affectedModules.push(m);
       });
 
-      // Some plugins and `createHash` operation are not necessary in wallaby context and very time consuming with many chunks
+      // Some plugins and operations are not necessary in wallaby context and very time consuming with many chunks
 
       self._removePlugins('', compilation);
       self._removePlugins(0, compilation);
@@ -314,6 +314,10 @@ class WebpackPostprocessor {
       compilation.plugin('should-generate-chunk-assets', function() {
         return false;
       });
+      compilation.processDependenciesBlockForChunk
+        = compilation.sortItemsWithModuleIds
+        = compilation.sortItemsWithChunkIds = function () {
+      };
     });
 
     // no need to emit chunks as we emit individual modules
