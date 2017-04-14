@@ -303,21 +303,21 @@ class WebpackPostprocessor {
 
       // Some plugins and operations are not necessary in wallaby context and very time consuming with many chunks
 
-      self._removePlugins('', compilation);
-      self._removePlugins(0, compilation);
-      self._removePlugins(1, compilation);
-      self._removePlugins(2, compilation);
-
-      compilation.createHash = function () {
-        this.hash = '';
-      };
-      compilation.plugin('should-generate-chunk-assets', function() {
-        return false;
-      });
-      compilation.processDependenciesBlockForChunk
-        = compilation.sortItemsWithModuleIds
-        = compilation.sortItemsWithChunkIds = function () {
-      };
+      // self._removePlugins('', compilation);
+      // self._removePlugins(0, compilation);
+      // self._removePlugins(1, compilation);
+      // self._removePlugins(2, compilation);
+      //
+      // compilation.createHash = function () {
+      //   this.hash = '';
+      // };
+      // compilation.plugin('should-generate-chunk-assets', function() {
+      //   return false;
+      // });
+      // compilation.processDependenciesBlockForChunk
+      //   = compilation.sortItemsWithModuleIds
+      //   = compilation.sortItemsWithChunkIds = function () {
+      // };
     });
 
     // no need to emit chunks as we emit individual modules
@@ -330,10 +330,10 @@ class WebpackPostprocessor {
   }
 
 
-  _removePlugins(i, compilation){
+  _removePlugins(i, compilation) {
     var name = 'applyPlugins' + i;
     var originalApplyPlugins = compilation['applyPlugins' + i];
-    if(originalApplyPlugins){
+    if (originalApplyPlugins) {
       compilation[name] = function (name) {
         if (name === 'optimize-module-order' || name === 'optimize-chunk-order' || name === 'optimize-chunk-ids') return;
         return originalApplyPlugins.apply(this, arguments);
@@ -346,12 +346,18 @@ class WebpackPostprocessor {
     // to avoid wrapping module into a function, we do it a bit differently in _wrapSourceFile
     self._moduleTemplate._plugins['render'] = [];
 
-    var node = self._moduleTemplate.render(m, self._dependencyTemplates, {modules: [m]});
+    try {
+      var node = self._moduleTemplate.render(m, self._dependencyTemplates, {modules: [m]});
 
-    return {
-      code: WebpackPostprocessor._wrapSourceFile(WebpackPostprocessor._getModuleId(m, file, self._isEntryFile(file)), node.source()),
-      map: () => node.map()
-    };
+      return {
+        code: WebpackPostprocessor._wrapSourceFile(WebpackPostprocessor._getModuleId(m, file, self._isEntryFile(file)), node.source()),
+        map: () => node.map()
+      };
+    }
+    catch (e) {
+      console.error(e.stack);
+      throw e;
+    }
   }
 
   _isEntryFile(file) {
