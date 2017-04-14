@@ -355,7 +355,7 @@ class WebpackPostprocessor {
       };
     }
     catch (e) {
-      console.error(e.stack);
+      console.error(file.path, m.resource);
       throw e;
     }
   }
