@@ -369,6 +369,7 @@ class WebpackPostprocessor {
 
   static _getModuleId(m, file, isEntryFile) {
     var testFile = file && file.test;
+    if (m.meta && m.meta['aurelia-id']) return m.meta['aurelia-id'];
     if (testFile || !_.isNumber(m.id) || isEntryFile) return m.resource;
     return m.id;
   }
