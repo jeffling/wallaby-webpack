@@ -37,6 +37,7 @@ class WebpackPostprocessor {
     this._preserveEntryFileLoadOrder = this._opts.preserveEntryFileLoadOrder;
     delete this._opts.entryPatterns;
     delete this._opts.preserveEntryFileLoadOrder;
+    this._opts.entry = {};
 
     if (this._entryPatterns && _.isString(this._entryPatterns)) {
       this._entryPatterns = [this._entryPatterns];
