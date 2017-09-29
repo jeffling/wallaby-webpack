@@ -311,7 +311,7 @@ class WebpackPostprocessor {
       compilation.createHash = function () {
         this.hash = '';
       };
-      compilation.plugin('should-generate-chunk-assets', function() {
+      compilation.plugin('should-generate-chunk-assets', function () {
         return false;
       });
       compilation.processDependenciesBlockForChunk
@@ -330,10 +330,10 @@ class WebpackPostprocessor {
   }
 
 
-  _removePlugins(i, compilation){
+  _removePlugins(i, compilation) {
     var name = 'applyPlugins' + i;
     var originalApplyPlugins = compilation['applyPlugins' + i];
-    if(originalApplyPlugins){
+    if (originalApplyPlugins) {
       compilation[name] = function (name) {
         if (name === 'optimize-module-order' || name === 'optimize-chunk-order' || name === 'optimize-chunk-ids') return;
         return originalApplyPlugins.apply(this, arguments);
@@ -349,7 +349,7 @@ class WebpackPostprocessor {
     var node = self._moduleTemplate.render(m, self._dependencyTemplates, {modules: [m]});
 
     return {
-      code: WebpackPostprocessor._wrapSourceFile(WebpackPostprocessor._getModuleId(m, file, self._isEntryFile(file)), node.source()),
+      code: WebpackPostprocessor._wrapSourceFile(WebpackPostprocessor._getModuleId(m, file, self._isEntryFile(file)), node.source(), m.strict),
       map: () => node.map()
     };
   }
@@ -374,8 +374,9 @@ class WebpackPostprocessor {
     return m.id;
   }
 
-  static _wrapSourceFile(id, content) {
+  static _wrapSourceFile(id, content, useStrict) {
     return 'window.__moduleBundler.cache[' + JSON.stringify(id) + '] = [function(__webpack_require__, module, exports, __webpack_exports__) {'
+      + (useStrict ? '"use strict";' : '')
       + content + '\n}, window.__moduleBundler.deps];';
   }
 
