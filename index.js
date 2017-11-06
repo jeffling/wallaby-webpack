@@ -34,9 +34,11 @@ class WebpackPostprocessor {
     this._opts = opts || {};
 
     this._entryPatterns = this._opts.entryPatterns;
+    this._emitModulePaths = this._opts.emitModulePaths;
     this._preserveEntryFileLoadOrder = this._opts.preserveEntryFileLoadOrder;
     delete this._opts.entryPatterns;
     delete this._opts.preserveEntryFileLoadOrder;
+    delete this._opts.emitModulePaths;
     this._opts.entry = {};
 
     if (this._entryPatterns && _.isString(this._entryPatterns)) {
@@ -48,6 +50,7 @@ class WebpackPostprocessor {
     this._affectedModules = [];
     this._moduleIds = {};
     this._moduleIdByPath = {};
+    this._modulePathById = {};
     this._allTrackedFiles = {};
     this._entryFiles = {};
     this._testDependencies = {};
@@ -196,7 +199,9 @@ class WebpackPostprocessor {
               // modules unknown so far force test loader script reload
               self._loaderEmitRequired = true;
             }
-
+            if (self._emitModulePaths) {
+              self._modulePathById[moduleId] = m.resource;
+            }
             if (trackedFile) {
               self._moduleIdByPath[trackedFile.fullPath] = moduleId;
             }
@@ -211,9 +216,11 @@ class WebpackPostprocessor {
             createFilePromises.push(wallaby.createFile({
               order: -1,  // need to be the first file to load
               path: 'wallaby-webpack.js',
-              content: WebpackPostprocessor._getLoaderContent() + 'window.__moduleBundler.deps = '
+              content: WebpackPostprocessor._getLoaderContent()
+              + 'window.__moduleBundler.deps = '
               // dependency lookup
               + JSON.stringify(self._moduleIds) + ';'
+              + (self._emitModulePaths ? ('window.__moduleBundler.depPaths = ' + JSON.stringify(self._modulePathById) + ';') : '')
             }));
 
             // Executing all entry files
@@ -392,7 +399,7 @@ class WebpackPostprocessor {
     // __webpack_require__.n,
     // __webpack_require__.o,
     // (see webpack/lib/MainTemplate.js)
-    var prelude = '(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module \'"+o+"\'");throw f.code="MODULE_NOT_FOUND",f}var exp={};var mid=o;try{mid=o.toString();}catch(emid){}var l=n[o]={exports:exp,e:exp,id:mid,i:mid,loaded:false,l:false};var rq=function(e){var n=t[o][1][e];return s(n?n:e)};rq.e=function(a1,a2){if(a2){a2.call(null,rq);}else{return Promise.resolve();}};rq.m=tm;rq.c=n;rq.p="";rq.i=function(value){return value;};rq.d=function(exports,name,getter){Object.defineProperty(exports,name,{configurable:false,enumerable:true,get:getter});};rq.o=function(object,property){return Object.prototype.hasOwnProperty.call(object,property);};rq.n=function(module){var getter=module&&module.__esModule ? function getDefault(){return module["default"];} : function getModuleExports(){return module;};rq.d(getter,"a",getter);return getter;};t[o][0].call(exp,rq,l,exp,exp,e,t,n,r);l.exports=l.e=((exp===l.e)?l.exports:l.e);l.l=true;if(Object.getOwnPropertyDescriptor(l, "loaded").writable){l.loaded=true}}return n[o].exports}var tm={};for(var pr in t){if(t.hasOwnProperty(pr)){tm[pr]=(function(orf){return function(md,mde,wrq){return orf.call(this,wrq,md,mde);}})(t[pr][0]);}}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})';
+    var prelude = '(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module \'"+o+"\'"+(window.__moduleBundler.depPaths?" (" + window.__moduleBundler.depPaths[o]+")":""));throw f.code="MODULE_NOT_FOUND",f}var exp={};var mid=o;try{mid=o.toString();}catch(emid){}var l=n[o]={exports:exp,e:exp,id:mid,i:mid,loaded:false,l:false};var rq=function(e){var n=t[o][1][e];return s(n?n:e)};rq.e=function(a1,a2){if(a2){a2.call(null,rq);}else{return Promise.resolve();}};rq.m=tm;rq.c=n;rq.p="";rq.i=function(value){return value;};rq.d=function(exports,name,getter){Object.defineProperty(exports,name,{configurable:false,enumerable:true,get:getter});};rq.o=function(object,property){return Object.prototype.hasOwnProperty.call(object,property);};rq.n=function(module){var getter=module&&module.__esModule ? function getDefault(){return module["default"];} : function getModuleExports(){return module;};rq.d(getter,"a",getter);return getter;};t[o][0].call(exp,rq,l,exp,exp,e,t,n,r);l.exports=l.e=((exp===l.e)?l.exports:l.e);l.l=true;if(Object.getOwnPropertyDescriptor(l, "loaded").writable){l.loaded=true}}return n[o].exports}var tm={};for(var pr in t){if(t.hasOwnProperty(pr)){tm[pr]=(function(orf){return function(md,mde,wrq){return orf.call(this,wrq,md,mde);}})(t[pr][0]);}}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})';
     return 'window.__moduleBundler = {};'
       + 'window.__moduleBundler.cache = {};'
       + 'window.__moduleBundler.moduleCache = {};'
