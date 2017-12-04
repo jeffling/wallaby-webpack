@@ -128,6 +128,9 @@ class WebpackPostprocessor {
         self._testDependencies = {};
 
         self._loaderEmitRequired = true;
+        self._fullRun = true;
+      } else {
+        self._fullRun = false;
       }
 
       // cache invalidation for changed files
@@ -304,8 +307,38 @@ class WebpackPostprocessor {
       self._moduleTemplate = compilation.moduleTemplate;
       self._dependencyTemplates = compilation.dependencyTemplates;
 
+      var needToPatchDependencyTemplates = !self._fullRun;
+
       compilation.plugin('build-module', function (m) {
         self._affectedModules.push(m);
+
+        if (needToPatchDependencyTemplates && self._dependencyTemplates.forEach) {
+          self._dependencyTemplates.forEach(v => {
+            if (v && v.constructor && (typeof v.constructor.name === 'string')
+              && v.constructor.name.indexOf('Harmony') === 0 && !v.patched) {
+              var originalApply = v.apply;
+              v.apply = function (dep, source) {
+                var replacementsLengthBeforeDepenencyProcessing;
+                if (source && source.replacements) {
+                  replacementsLengthBeforeDepenencyProcessing = source.replacements.length;
+                }
+                var result = originalApply.apply(this, arguments);
+                if (source.replacements && source.replacements.length !== replacementsLengthBeforeDepenencyProcessing) {
+                  if (dep && dep.module && dep.module.issuer
+                    && dep.module.issuer.constructor
+                    && (typeof dep.module.issuer.constructor.name === 'string')
+                    && ~dep.module.issuer.constructor.name.indexOf('Module')
+                    && dep.module.issuer !== m) {
+                    self._affectedModules.push(dep.module.issuer);
+                  }
+                }
+                return result;
+              };
+              v.patched = true;
+            }
+          });
+          needToPatchDependencyTemplates = false;
+        }
       });
 
       // Some plugins and operations are not necessary in wallaby context and very time consuming with many chunks
