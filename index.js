@@ -162,6 +162,11 @@ class WebpackPostprocessor {
         .then(function () {
           logger.debug('Webpack compilation finished');
           var createFilePromises = [];
+
+          if (!self._fullRun) {
+            self._affectedModules = self._addHarmonyModulesAffectedDependencies(self._affectedModules, affectedFiles);
+          }
+
           _.each(self._affectedModules, function (m) {
             var trackedFile = m.resource && affectedFiles[m.resource];
             var isEntryFile = trackedFile && self._entryFiles[trackedFile.fullPath];
@@ -172,7 +177,7 @@ class WebpackPostprocessor {
 
             if (isTestFile && m.dependencies) {
               var depIds = [];
-              self._traverseDependencies(m.dependencies, depIds, {});
+              self._traverseDependencies(m.dependencies, d => d.module, (m, f) => depIds.push(f.id), {});
               self._testDependencies[trackedFile.id] = depIds;
             }
 
@@ -247,16 +252,51 @@ class WebpackPostprocessor {
     };
   }
 
-  _traverseDependencies(deps, depIds, visitedDeps) {
+  _addHarmonyModulesAffectedDependencies(affectedModules, affectedFiles) {
+    var self = this;
+    var allAffectedModules = {};
+    var allAffectedModulesList = [];
+    var visitedDeps = {};
+    _.each(affectedModules, m => {
+      if (!_.isNumber(m.id)) {
+        allAffectedModulesList.push(m);
+      } else {
+        allAffectedModules[m.id] = m;
+      }
+      if (m.dependencies) {
+        self._traverseDependencies(
+          m.dependencies,
+          dep => dep && dep.constructor && (typeof dep.constructor.name === 'string')
+            && (dep.constructor.name.indexOf('HarmonyExport') === 0) && dep.originModule && dep.originModule.issuer,
+          (m, f) => {
+            if (_.isNumber(m.id)) {
+              allAffectedModules[m.id] = m;
+            } else {
+              allAffectedModulesList.push(m);
+            }
+            if (f) {
+              affectedFiles[m.resource] = f;
+            }
+          },
+          visitedDeps
+        );
+      }
+    });
+    return allAffectedModulesList.concat(_.values(allAffectedModules));
+  }
+
+  _traverseDependencies(deps, moduleGetter, onDependency, visitedDeps) {
     var self = this;
     _.each(deps, function (dep) {
-      if (!dep || !dep.module) return;
-      var depResourceId = dep.module.resource || '';
+      if (!dep) return;
+      var m = moduleGetter(dep);
+      if (!m) return;
+      var depResourceId = m.resource || '';
       if (visitedDeps[depResourceId]) return;
       visitedDeps[depResourceId] = true;
-      var trackedDepFile = dep.module.resource && self._allTrackedFiles[dep.module.resource];
-      if (trackedDepFile) depIds.push(trackedDepFile.id);
-      self._traverseDependencies(dep.module.dependencies, depIds, visitedDeps);
+      var trackedDepFile = m.resource && self._allTrackedFiles[m.resource];
+      if (trackedDepFile) onDependency(m, trackedDepFile, dep);
+      self._traverseDependencies(m.dependencies, moduleGetter, onDependency, visitedDeps);
     });
   }
 
@@ -307,38 +347,8 @@ class WebpackPostprocessor {
       self._moduleTemplate = compilation.moduleTemplate;
       self._dependencyTemplates = compilation.dependencyTemplates;
 
-      var needToPatchDependencyTemplates = !self._fullRun;
-
       compilation.plugin('build-module', function (m) {
         self._affectedModules.push(m);
-
-        if (needToPatchDependencyTemplates && self._dependencyTemplates.forEach) {
-          self._dependencyTemplates.forEach(v => {
-            if (v && v.constructor && (typeof v.constructor.name === 'string')
-              && v.constructor.name.indexOf('Harmony') === 0 && !v.patched) {
-              var originalApply = v.apply;
-              v.apply = function (dep, source) {
-                var replacementsLengthBeforeDepenencyProcessing;
-                if (source && source.replacements) {
-                  replacementsLengthBeforeDepenencyProcessing = source.replacements.length;
-                }
-                var result = originalApply.apply(this, arguments);
-                if (source.replacements && source.replacements.length !== replacementsLengthBeforeDepenencyProcessing) {
-                  if (dep && dep.module && dep.module.issuer
-                    && dep.module.issuer.constructor
-                    && (typeof dep.module.issuer.constructor.name === 'string')
-                    && ~dep.module.issuer.constructor.name.indexOf('Module')
-                    && dep.module.issuer !== m) {
-                    self._affectedModules.push(dep.module.issuer);
-                  }
-                }
-                return result;
-              };
-              v.patched = true;
-            }
-          });
-          needToPatchDependencyTemplates = false;
-        }
       });
 
       // Some plugins and operations are not necessary in wallaby context and very time consuming with many chunks
