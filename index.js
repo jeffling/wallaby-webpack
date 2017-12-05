@@ -39,6 +39,7 @@ class WebpackPostprocessor {
     delete this._opts.entryPatterns;
     delete this._opts.preserveEntryFileLoadOrder;
     delete this._opts.emitModulePaths;
+    delete this._opts.mode;
     this._opts.entry = {};
 
     if (this._entryPatterns && _.isString(this._entryPatterns)) {
