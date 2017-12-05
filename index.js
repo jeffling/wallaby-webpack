@@ -94,17 +94,17 @@ class WebpackPostprocessor {
         }, {});
         // Entry files ordered by entry pattern index
         self._entryFiles = _.reduce(!self._entryPatterns
-            ? wallaby.allTestFiles
-            : _.sortBy(_.filter(self._allTrackedFiles, file => {
-              var satisfiesAnyEntryPattern = _.find(self._entryPatterns, (pattern, patternIndex) => (file.patternIndex = patternIndex, mm(file.path, pattern)));
-              if (!satisfiesAnyEntryPattern) {
-                delete file.patternIndex;
-              } else {
-                delete entryPatternsNotMatchingAnyFiles[satisfiesAnyEntryPattern];
-              }
+          ? wallaby.allTestFiles
+          : _.sortBy(_.filter(self._allTrackedFiles, file => {
+            var satisfiesAnyEntryPattern = _.find(self._entryPatterns, (pattern, patternIndex) => (file.patternIndex = patternIndex, mm(file.path, pattern)));
+            if (!satisfiesAnyEntryPattern) {
+              delete file.patternIndex;
+            } else {
+              delete entryPatternsNotMatchingAnyFiles[satisfiesAnyEntryPattern];
+            }
 
-              return satisfiesAnyEntryPattern;
-            }), 'patternIndex'),
+            return satisfiesAnyEntryPattern;
+          }), 'patternIndex'),
           function (memo, file) {
             delete file.patternIndex;
             memo[file.fullPath] = file;
@@ -344,7 +344,7 @@ class WebpackPostprocessor {
       compiler.lastCompilation = compilation;
       compilation.cache = self._compilationCache;
       compilation.fileTimestamps = self._compilationFileTimestamps;
-      self._moduleTemplate = compilation.moduleTemplate;
+      self._moduleTemplate = (compilation.moduleTemplates && compilation.moduleTemplates.javascript) || compilation.moduleTemplate;
       self._dependencyTemplates = compilation.dependencyTemplates;
 
       compilation.plugin('build-module', function (m) {
@@ -365,6 +365,7 @@ class WebpackPostprocessor {
         return false;
       });
       compilation.processDependenciesBlockForChunk
+        = compilation.processDependenciesBlocksForChunks
         = compilation.sortItemsWithModuleIds
         = compilation.sortItemsWithChunkIds = function () {
       };
@@ -388,13 +389,18 @@ class WebpackPostprocessor {
         if (name === 'optimize-module-order' || name === 'optimize-chunk-order' || name === 'optimize-chunk-ids') return;
         return originalApplyPlugins.apply(this, arguments);
       };
+    } else if (compilation.hooks) {
+      compilation.hooks.optimizeModuleOrder
+        = compilation.hooks.optimizeChunkOrder
+        = compilation.hooks.optimizeChunkIds = {call: a => a};
     }
   }
 
   _getSource(m, file) {
     var self = this;
     // to avoid wrapping module into a function, we do it a bit differently in _wrapSourceFile
-    self._moduleTemplate._plugins['render'] = [];
+    self._moduleTemplate._plugins && (self._moduleTemplate._plugins['render'] = []);
+    self._moduleTemplate.hooks && (self._moduleTemplate.hooks['render'] = {call: a => a});
 
     var node = self._moduleTemplate.render(m, self._dependencyTemplates, {modules: [m]});
 
@@ -442,7 +448,7 @@ class WebpackPostprocessor {
     // __webpack_require__.n,
     // __webpack_require__.o,
     // (see webpack/lib/MainTemplate.js)
-    var prelude = '(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module \'"+o+"\'"+(window.__moduleBundler.depPaths?" (" + window.__moduleBundler.depPaths[o]+")":""));throw f.code="MODULE_NOT_FOUND",f}var exp={};var mid=o;try{mid=o.toString();}catch(emid){}var l=n[o]={exports:exp,e:exp,id:mid,i:mid,loaded:false,l:false};var rq=function(e){var n=t[o][1][e];return s(n?n:e)};rq.e=function(a1,a2){if(a2){a2.call(null,rq);}else{return Promise.resolve();}};rq.m=tm;rq.c=n;rq.p="";rq.i=function(value){return value;};rq.d=function(exports,name,getter){Object.defineProperty(exports,name,{configurable:false,enumerable:true,get:getter});};rq.o=function(object,property){return Object.prototype.hasOwnProperty.call(object,property);};rq.n=function(module){var getter=module&&module.__esModule ? function getDefault(){return module["default"];} : function getModuleExports(){return module;};rq.d(getter,"a",getter);return getter;};t[o][0].call(exp,rq,l,exp,exp,e,t,n,r);l.exports=l.e=((exp===l.e)?l.exports:l.e);l.l=true;if(Object.getOwnPropertyDescriptor(l, "loaded").writable){l.loaded=true}}return n[o].exports}var tm={};for(var pr in t){if(t.hasOwnProperty(pr)){tm[pr]=(function(orf){return function(md,mde,wrq){return orf.call(this,wrq,md,mde);}})(t[pr][0]);}}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})';
+    var prelude = '(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module \'"+o+"\'"+(window.__moduleBundler.depPaths?" (" + window.__moduleBundler.depPaths[o]+")":""));throw f.code="MODULE_NOT_FOUND",f}var exp={};var mid=o;try{mid=o.toString();}catch(emid){}var l=n[o]={exports:exp,e:exp,id:mid,i:mid,loaded:false,l:false};var rq=function(e){var n=t[o][1][e];return s(n?n:e)};rq.e=function(a1,a2){if(a2){a2.call(null,rq);}else{return Promise.resolve();}};rq.m=tm;rq.c=n;rq.p="";rq.i=function(value){return value;};rq.d=function(exports,name,getter){Object.defineProperty(exports,name,{configurable:false,enumerable:true,get:getter});};rq.o=function(object,property){return Object.prototype.hasOwnProperty.call(object,property);};rq.r=function(exports){Object.defineProperty(exports,\'__esModule\',{value:true});};rq.n=function(module){var getter=module&&module.__esModule ? function getDefault(){return module["default"];} : function getModuleExports(){return module;};rq.d(getter,"a",getter);return getter;};t[o][0].call(exp,rq,l,exp,exp,e,t,n,r);l.exports=l.e=((exp===l.e)?l.exports:l.e);l.l=true;if(Object.getOwnPropertyDescriptor(l, "loaded").writable){l.loaded=true}}return n[o].exports}var tm={};for(var pr in t){if(t.hasOwnProperty(pr)){tm[pr]=(function(orf){return function(md,mde,wrq){return orf.call(this,wrq,md,mde);}})(t[pr][0]);}}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})';
     return 'window.__moduleBundler = {};'
       + 'window.__moduleBundler.cache = {};'
       + 'window.__moduleBundler.moduleCache = {};'
