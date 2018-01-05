@@ -393,7 +393,7 @@ class WebpackPostprocessor {
     } else if (compilation.hooks) {
       compilation.hooks.optimizeModuleOrder
         = compilation.hooks.optimizeChunkOrder
-        = compilation.hooks.optimizeChunkIds = {call: a => a};
+        = compilation.hooks.optimizeChunkIds = {call: a => a, tap: a => a};
     }
   }
 
@@ -401,7 +401,7 @@ class WebpackPostprocessor {
     var self = this;
     // to avoid wrapping module into a function, we do it a bit differently in _wrapSourceFile
     self._moduleTemplate._plugins && (self._moduleTemplate._plugins['render'] = []);
-    self._moduleTemplate.hooks && (self._moduleTemplate.hooks['render'] = {call: a => a});
+    self._moduleTemplate.hooks && (self._moduleTemplate.hooks['render'] = {call: a => a, tap: a => a});
 
     var node = self._moduleTemplate.render(m, self._dependencyTemplates, {modules: [m]});
 
