@@ -310,6 +310,11 @@ class WebpackPostprocessor {
 
   _createCompiler(mandatoryOpts, nodeModulesDir) {
     var isOptionsSchemaEnforced = !!this._webpack.validate;
+    var hasMode = !!this._webpack.web;
+    if (hasMode) {
+      this._opts.mode = 'none';
+    }
+
     var mergedOpts = _.merge({}, this._opts, mandatoryOpts);
 
     WebpackPostprocessor._configureModules('modules', false, nodeModulesDir, this._opts, mergedOpts);
@@ -344,6 +349,9 @@ class WebpackPostprocessor {
 
       compiler.lastCompilation = compilation;
       compilation.cache = self._compilationCache;
+      self._compilationFileTimestamps.get = function (f) {
+        return self._compilationFileTimestamps[f];
+      };
       compilation.fileTimestamps = self._compilationFileTimestamps;
       self._moduleTemplate = (compilation.moduleTemplates && compilation.moduleTemplates.javascript) || compilation.moduleTemplate;
       self._dependencyTemplates = compilation.dependencyTemplates;
@@ -427,6 +435,7 @@ class WebpackPostprocessor {
   static _getModuleId(m, file, isEntryFile) {
     var testFile = file && file.test;
     if (m.meta && m.meta['aurelia-id']) return m.meta['aurelia-id'];
+    if (m.buildMeta && m.buildMeta['aurelia-id']) return m.buildMeta['aurelia-id'];
     if (testFile || !_.isNumber(m.id) || isEntryFile) return m.resource;
     return m.id;
   }
