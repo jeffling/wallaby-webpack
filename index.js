@@ -31,11 +31,15 @@ class WebpackPostprocessor {
 
   constructor(opts) {
     this._loaderEmitRequired = false;
+
     this._opts = opts || {};
+
+    this._webpack = this._opts.webpack;
 
     this._entryPatterns = this._opts.entryPatterns;
     this._emitModulePaths = this._opts.emitModulePaths;
     this._preserveEntryFileLoadOrder = this._opts.preserveEntryFileLoadOrder;
+    delete this._opts.webpack;
     delete this._opts.entryPatterns;
     delete this._opts.preserveEntryFileLoadOrder;
     delete this._opts.emitModulePaths;
@@ -65,10 +69,12 @@ class WebpackPostprocessor {
   createPostprocessor() {
     var self = this;
 
-    this._webpack = WebpackPostprocessor._tryRequireFrom('webpack')
-      || WebpackPostprocessor._tryRequireFrom('react-scripts/node_modules/webpack')
-      || WebpackPostprocessor._tryRequireFrom('angular-cli/node_modules/webpack')
-      || WebpackPostprocessor._tryRequireFrom('@angular-devkit/build-angular/node_modules/webpack');
+    if (!this._webpack) {
+      this._webpack = WebpackPostprocessor._tryRequireFrom('webpack')
+        || WebpackPostprocessor._tryRequireFrom('react-scripts/node_modules/webpack')
+        || WebpackPostprocessor._tryRequireFrom('angular-cli/node_modules/webpack')
+        || WebpackPostprocessor._tryRequireFrom('@angular-devkit/build-angular/node_modules/webpack');
+    }
 
     if (!this._webpack) {
       console.error('Webpack node module is not found, missing `npm install webpack --save-dev`?');
