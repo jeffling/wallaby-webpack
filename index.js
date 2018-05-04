@@ -67,7 +67,8 @@ class WebpackPostprocessor {
 
     this._webpack = WebpackPostprocessor._tryRequireFrom('webpack')
       || WebpackPostprocessor._tryRequireFrom('react-scripts/node_modules/webpack')
-      || WebpackPostprocessor._tryRequireFrom('angular-cli/node_modules/webpack');
+      || WebpackPostprocessor._tryRequireFrom('angular-cli/node_modules/webpack')
+      || WebpackPostprocessor._tryRequireFrom('@angular-devkit/build-angular/node_modules/webpack');
 
     if (!this._webpack) {
       console.error('Webpack node module is not found, missing `npm install webpack --save-dev`?');
