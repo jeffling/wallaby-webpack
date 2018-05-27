@@ -339,7 +339,9 @@ class WebpackPostprocessor {
     var effectiveOptionsResolve = effectiveOptions[resolvePath] = effectiveOptions[resolvePath] || {};
 
     var modules = effectiveOptionsResolve[modulesSettingName] =
-      ((userOptions[resolvePath] || {})[modulesSettingName] || []).concat(['node_modules', modulesDir]);
+      ((userOptions[resolvePath] || {})[modulesSettingName] || []).concat(['node_modules']);
+
+    if (modulesDir) modules.push(modulesDir);
 
     if (!userOptions[resolvePath] || !userOptions[resolvePath][modulesSettingName] || !userOptions[resolvePath][modulesSettingName].length) {
       modules.push('web_modules');
