@@ -384,6 +384,7 @@ class WebpackPostprocessor {
       });
       compilation.processDependenciesBlockForChunk
         = compilation.processDependenciesBlocksForChunks
+        = compilation.processDependenciesBlocksForChunkGroups
         = compilation.sortItemsWithModuleIds
         = compilation.sortItemsWithChunkIds = function () {
       };
