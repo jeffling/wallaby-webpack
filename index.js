@@ -59,6 +59,7 @@ class WebpackPostprocessor {
     this._allTrackedFiles = {};
     this._entryFiles = {};
     this._testDependencies = {};
+    this._testFilePathById = {};
     this._inputFileSystem = new WallabyInputFileSystem(this);
   }
 
@@ -134,6 +135,7 @@ class WebpackPostprocessor {
         self._compilationCache = {};
         self._compilationFileTimestamps = {};
         self._testDependencies = {};
+        self._testFilePathById = {};
 
         self._loaderEmitRequired = true;
         self._fullRun = true;
@@ -221,6 +223,9 @@ class WebpackPostprocessor {
             if (trackedFile) {
               self._moduleIdByPath[trackedFile.fullPath] = moduleId;
             }
+            if (isTestFile) {
+              self._testFilePathById[m.id] = trackedFile.path;
+            }
           });
 
           // resetting till next incremental bundle run
@@ -233,10 +238,11 @@ class WebpackPostprocessor {
               order: -1,  // need to be the first file to load
               path: 'wallaby-webpack.js',
               content: WebpackPostprocessor._getLoaderContent()
-              + 'window.__moduleBundler.deps = '
-              // dependency lookup
-              + JSON.stringify(self._moduleIds) + ';'
-              + (self._emitModulePaths ? ('window.__moduleBundler.depPaths = ' + JSON.stringify(self._modulePathById) + ';') : '')
+                + 'window.__moduleBundler.deps = '
+                // dependency lookup
+                + JSON.stringify(self._moduleIds) + ';'
+                + (self._emitModulePaths ? ('window.__moduleBundler.depPaths = ' + JSON.stringify(self._modulePathById) + ';') : '')
+                + 'window.__moduleBundler.testFilePathById = ' + JSON.stringify(self._testFilePathById) + ';'
             }));
 
             // Executing all entry files
@@ -468,7 +474,7 @@ class WebpackPostprocessor {
     // __webpack_require__.n,
     // __webpack_require__.o,
     // (see webpack/lib/MainTemplate.js)
-    var prelude = '(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module \'"+o+"\'"+(window.__moduleBundler.depPaths?" (" + window.__moduleBundler.depPaths[o]+")":""));throw f.code="MODULE_NOT_FOUND",f}var exp={};var mid=o;try{mid=o.toString();}catch(emid){}var l=n[o]={exports:exp,e:exp,id:mid,i:mid,loaded:false,l:false};var rq=function(e){var n=t[o][1][e];return s(n?n:e)};rq.e=function(a1,a2){if(a2){a2.call(null,rq);}else{return Promise.resolve();}};rq.m=tm;rq.c=n;rq.p="";rq.i=function(value){return value;};rq.d=function(exports,name,getter){Object.defineProperty(exports,name,{configurable:false,enumerable:true,get:getter});};rq.o=function(object,property){return Object.prototype.hasOwnProperty.call(object,property);};rq.r=function(exports){Object.defineProperty(exports,\'__esModule\',{value:true});};rq.n=function(module){var getter=module&&module.__esModule ? function getDefault(){return module["default"];} : function getModuleExports(){return module;};rq.d(getter,"a",getter);return getter;};t[o][0].call(exp,rq,l,exp,exp,e,t,n,r);l.exports=l.e=((exp===l.e)?l.exports:l.e);l.l=true;if(Object.getOwnPropertyDescriptor(l, "loaded").writable){l.loaded=true}}return n[o].exports}var tm={};for(var pr in t){if(t.hasOwnProperty(pr)){tm[pr]=(function(orf){return function(md,mde,wrq){return orf.call(this,wrq,md,mde);}})(t[pr][0]);}}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})';
+    var prelude = '(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var tfp=window.__moduleBundler.testFilePathById[o];if(tfp){throw new Error("Test file "+tfp+" is being imported from other test files.\\nThis may cause tests in the file to be executed more than once (when the test file runs and every time it gets imported).\\nIf the test file contains some test helper code, try refactoring the reused code into a file of its own and use it by importing the new helper file where required.")}var f=new Error("Cannot find module \'"+o+"\'"+(window.__moduleBundler.depPaths?" (" + window.__moduleBundler.depPaths[o]+")":""));throw f.code="MODULE_NOT_FOUND",f}var exp={};var mid=o;try{mid=o.toString();}catch(emid){}var l=n[o]={exports:exp,e:exp,id:mid,i:mid,loaded:false,l:false};var rq=function(e){var n=t[o][1][e];return s(n?n:e)};rq.e=function(a1,a2){if(a2){a2.call(null,rq);}else{return Promise.resolve();}};rq.m=tm;rq.c=n;rq.p="";rq.i=function(value){return value;};rq.d=function(exports,name,getter){Object.defineProperty(exports,name,{configurable:false,enumerable:true,get:getter});};rq.o=function(object,property){return Object.prototype.hasOwnProperty.call(object,property);};rq.r=function(exports){Object.defineProperty(exports,\'__esModule\',{value:true});};rq.n=function(module){var getter=module&&module.__esModule ? function getDefault(){return module["default"];} : function getModuleExports(){return module;};rq.d(getter,"a",getter);return getter;};t[o][0].call(exp,rq,l,exp,exp,e,t,n,r);l.exports=l.e=((exp===l.e)?l.exports:l.e);l.l=true;if(Object.getOwnPropertyDescriptor(l, "loaded").writable){l.loaded=true}}return n[o].exports}var tm={};for(var pr in t){if(t.hasOwnProperty(pr)){tm[pr]=(function(orf){return function(md,mde,wrq){return orf.call(this,wrq,md,mde);}})(t[pr][0]);}}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})';
     return 'window.__moduleBundler = {};'
       + 'window.__moduleBundler.cache = {};'
       + 'window.__moduleBundler.moduleCache = {};'
