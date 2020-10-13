@@ -82,6 +82,14 @@ class WebpackPostprocessor {
       return;
     }
 
+    var webpackPackageJson = WebpackPostprocessor._tryRequireFrom('webpack/package.json');
+    if (webpackPackageJson && webpackPackageJson.version) {
+      // Check if majorversion is >= 5
+      if (parseInt(webpackPackageJson.version.split('.')[0], 10) >= 5) {
+        throw new Error(`Unsupported webpack version. The 'wallaby-webpack\' package does not support your project's version of webpack (${webpackPackageJson.version}). Use Wallaby's built-in webpack integration instead: https://wallabyjs.com/docs/integration/webpack-built-in.html`);
+      }
+    }
+
     return wallaby => {
       var logger = wallaby.logger;
       var affectedFiles = WebpackPostprocessor._fileArrayToObject(wallaby.affectedFiles);
